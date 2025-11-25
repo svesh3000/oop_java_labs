@@ -1,0 +1,30 @@
+# Создаём/обновляем .gitignore
+cat > .gitignore << 'EOF'
+# IDEA
+.idea/
+*.iml
+*.iws
+
+# Maven
+target/
+.mvn/
+**/target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+
+# System
+.DS_Store
+Thumbs.db
+
+# Build
+build/
+out/
+bin/
+
+# Logs
+*.log
+
+# Mac
+.AppleDouble
+.LSOverride
