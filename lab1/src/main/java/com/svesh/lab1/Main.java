@@ -7,18 +7,25 @@ public class Main {
     public static void main(String[] args) {
         Hero hero = new Hero("Edick");
 
-        hero.move("Home", "City");
+        Condition[] conditions = {
+                Condition.SHORT,
+                Condition.LONG,
+                Condition.HIGH,
+                Condition.WATER,
+        };
 
-        hero.setMoveStrategy(new WalkStrategy());
-        hero.move("Home", "City");
+        for (Condition condition : conditions) {
+            System.out.println("Condition: " + condition);
 
-        hero.setMoveStrategy(new HorseStrategy());
-        hero.move("City", "Saloon");
+            switch (condition) {
+                case SHORT -> hero.setMoveStrategy(new WalkStrategy());
+                case LONG -> hero.setMoveStrategy(new HorseStrategy());
+                case HIGH -> hero.setMoveStrategy(new FlyStrategy());
+                case WATER -> hero.setMoveStrategy(new SwimStrategy());
+            }
 
-        hero.setMoveStrategy(new FlyStrategy());
-        hero.move("Saloon", "Mountain");
-
-        hero.setMoveStrategy(new SwimStrategy());
-        hero.move("Mountain", "Lake");
+            hero.move("Home", "City");
+            System.out.println();
+        }
     }
 }

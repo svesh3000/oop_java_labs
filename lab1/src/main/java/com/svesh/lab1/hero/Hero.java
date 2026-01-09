@@ -16,12 +16,12 @@ public class Hero {
 
     public void move(String from, String to) {
         if (moveStrategy == null) {
-            System.out.println(name + ": The transfer method is not selected!");
+            System.out.print(name + ": The transfer method is not selected!");
             return;
         }
         System.out.print(name + ": ");
         moveStrategy.move(from, to);
-        System.out.println("!");
+        System.out.print("!");
     }
 
     public String getName() {
