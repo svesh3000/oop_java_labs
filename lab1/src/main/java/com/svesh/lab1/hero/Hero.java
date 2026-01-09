@@ -11,7 +11,7 @@ public class Hero {
     }
 
     public void setMoveStrategy(MoveStrategy strategy) {
-        this.moveStrategy = strategy;
+        moveStrategy = strategy;
     }
 
     public void move(String from, String to) {
