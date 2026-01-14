@@ -1,31 +1,39 @@
 package com.svesh.lab1;
 
 import com.svesh.lab1.hero.Hero;
-import com.svesh.lab1.move_strategy.*;
+import com.svesh.lab1.move_strategy.StrategyFactory;
+import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
-        Hero hero = new Hero("Edick");
+        Scanner scanner = new Scanner(System.in);
+        Hero hero = new Hero();
+        String condition = "";
 
-        Condition[] conditions = {
-                Condition.SHORT,
-                Condition.LONG,
-                Condition.HIGH,
-                Condition.WATER,
-        };
+        while (true) {
+            System.out.print("Enter condition (short, long, high, water) or 'exit': ");
+            condition = scanner.nextLine();
 
-        for (Condition condition : conditions) {
-            System.out.println("Condition: " + condition);
-
-            switch (condition) {
-                case SHORT -> hero.setMoveStrategy(new WalkStrategy());
-                case LONG -> hero.setMoveStrategy(new HorseStrategy());
-                case HIGH -> hero.setMoveStrategy(new FlyStrategy());
-                case WATER -> hero.setMoveStrategy(new SwimStrategy());
+            if (condition.equals("exit")) {
+                break;
             }
 
-            hero.move("Home", "City");
-            System.out.println();
+            if (!StrategyFactory.isValid(condition)) {
+                System.out.println("Error: Unknown condition. Use: short, long, high, water.");
+                continue;
+            }
+
+            System.out.print("Enter start point: ");
+            String from = scanner.nextLine();
+            System.out.print("Enter end point: ");
+            String to = scanner.nextLine();
+
+            hero.setMoveStrategy(StrategyFactory.set(condition));
+            String result = hero.move(from, to);
+
+            System.out.println(result);
         }
+
+        scanner.close();
     }
 }
