@@ -1,6 +1,6 @@
 package com.svesh.lab2.test;
 
-import com.svesh.lab2.repeat.Repeat;
+import com.svesh.lab2.util.Repeat;
 
 public class TestClass {
 

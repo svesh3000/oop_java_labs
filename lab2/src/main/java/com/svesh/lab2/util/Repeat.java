@@ -1,4 +1,4 @@
-package com.svesh.lab2.repeat;
+package com.svesh.lab2.util;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
