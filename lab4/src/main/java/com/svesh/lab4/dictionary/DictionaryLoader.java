@@ -2,29 +2,34 @@ package com.svesh.lab4.dictionary;
 
 import com.svesh.lab4.exceptions.InvalidFileFormatException;
 import com.svesh.lab4.exceptions.FileReadException;
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class DictionaryLoader {
 
-    public static Map<String, String> loadDictionary(Path dictionaryPath)
+    public static Map<String, String> loadDictionary(String resourceName)
             throws FileReadException, InvalidFileFormatException {
-
-        if (!Files.exists(dictionaryPath)) {
-            throw new FileReadException("Dictionary file not found: " + dictionaryPath);
-        }
 
         Map<String, String> dictionary = new HashMap<>();
 
-        try {
-            List<String> lines = Files.readAllLines(dictionaryPath);
+        try (InputStream inputStream = DictionaryLoader.class.getClassLoader()
+                .getResourceAsStream(resourceName)) {
 
-            for (int i = 0; i < lines.size(); i++) {
-                String line = lines.get(i).trim();
+            if (inputStream == null) {
+                throw new FileReadException("Dictionary resource not found: " + resourceName);
+            }
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+            String line;
+            int lineNumber = 0;
+
+            while ((line = reader.readLine()) != null) {
+                lineNumber++;
+                line = line.trim();
 
                 if (line.isEmpty()) {
                     continue;
@@ -34,8 +39,7 @@ public class DictionaryLoader {
 
                 if (parts.length != 2) {
                     throw new InvalidFileFormatException(
-                            "Invalid format at line " + (i + 1) +
-                                    ". Expected: word | translation"
+                            "Invalid format at line " + lineNumber + ". Expected: word | translation"
                     );
                 }
 
@@ -44,7 +48,7 @@ public class DictionaryLoader {
 
                 if (word.isEmpty() || translation.isEmpty()) {
                     throw new InvalidFileFormatException(
-                            "Empty word or translation at line " + (i + 1)
+                            "Empty word or translation at line " + lineNumber
                     );
                 }
 
@@ -52,7 +56,7 @@ public class DictionaryLoader {
             }
 
         } catch (IOException e) {
-            throw new FileReadException("Error reading dictionary file: " + e.getMessage());
+            throw new FileReadException("Error reading dictionary: " + e.getMessage());
         }
 
         return dictionary;
