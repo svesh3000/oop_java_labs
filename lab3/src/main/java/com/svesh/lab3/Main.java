@@ -8,7 +8,7 @@ public class Main {
         List<Mammal> mammals = Arrays.asList(
                 new Hedgehog("Hedgehog1"),
                 new Manul("Manul1"),
-                new Lynx("Lunx1"),
+                new Lynx("Lynx1"),
                 new Hedgehog("Hedgehog2"),
                 new Manul("Manul2")
         );
@@ -23,7 +23,7 @@ public class Main {
 
         System.out.println("\n2. segregate(<Carnivores, Chordates, Manuls, Felidae):");
         List<Carnivore> carnivores = Arrays.asList(
-                new Lynx("Lunx1"),
+                new Lynx("Lynx1"),
                 new Manul("Manul1"),
                 new Manul("Manul2")
         );
@@ -48,7 +48,7 @@ public class Main {
     }
 
     private static void printCollections(Collection<?>... collections) {
-        String[] names = {"Hedgehogs:", "Manuls:", "Lunxes:"};
+        String[] names = {"Hedgehogs:", "Manuls:", "Lynxes:"};
         for (int i = 0; i < collections.length; i++) {
             System.out.println(names[i] + " " + collections[i]);
         }
