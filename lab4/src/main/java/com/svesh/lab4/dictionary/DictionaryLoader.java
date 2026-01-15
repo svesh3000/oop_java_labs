@@ -1,6 +1,7 @@
 package com.svesh.lab4.dictionary;
 
-import com.svesh.lab4.exceptions.*;
+import com.svesh.lab4.exceptions.InvalidFileFormatException;
+import com.svesh.lab4.exceptions.FileReadException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,8 +34,8 @@ public class DictionaryLoader {
 
                 if (parts.length != 2) {
                     throw new InvalidFileFormatException(
-                            "Invalid format in dictionary at line " + (i + 1) +
-                                    ". Expected format: word | translation"
+                            "Invalid format at line " + (i + 1) +
+                                    ". Expected: word | translation"
                     );
                 }
 
@@ -51,7 +52,7 @@ public class DictionaryLoader {
             }
 
         } catch (IOException e) {
-            throw new FileReadException("Error reading dictionary file: " + e.getMessage(), e);
+            throw new FileReadException("Error reading dictionary file: " + e.getMessage());
         }
 
         return dictionary;
