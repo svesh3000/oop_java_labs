@@ -1,4 +1,7 @@
-package com.svesh.lab2.util;
+package com.svesh.lab2.service;
+
+import com.svesh.lab2.annotation.Repeat;
+import com.svesh.lab2.util.DefaultValueGenerator;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -33,7 +36,7 @@ public class MethodInvoker {
 
         Object[] args = generateArguments(method);
 
-        System.out.println("\nInvoking method: " + method.getName() + times + "times");
+        System.out.println("\nInvoking method: " + method.getName() + " " + times + " times");
 
         for (int i = 0; i < times; i++) {
             try {

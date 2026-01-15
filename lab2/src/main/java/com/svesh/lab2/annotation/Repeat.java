@@ -1,4 +1,4 @@
-package com.svesh.lab2.util;
+package com.svesh.lab2.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
