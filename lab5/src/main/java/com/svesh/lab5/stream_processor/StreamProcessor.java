@@ -5,10 +5,11 @@ import java.util.stream.Collectors;
 
 public class StreamProcessor {
 
-    public static OptionalDouble average(List<Integer> numbers) {
+    public static double average(List<Integer> numbers) {
         return numbers.stream()
                 .mapToInt(Integer::intValue)
-                .average();
+                .average()
+                .orElse(0.0);
     }
 
     public static List<String> addPrefixAndUppercase(List<String> strings) {
