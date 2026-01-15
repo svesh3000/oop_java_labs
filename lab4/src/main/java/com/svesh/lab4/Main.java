@@ -1,4 +1,4 @@
-package com.svesh.lab3;
+package com.svesh.lab4;
 
 public class Main {
     public static void main(String[] args) {
