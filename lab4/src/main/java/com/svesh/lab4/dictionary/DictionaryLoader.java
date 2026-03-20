@@ -2,10 +2,12 @@ package com.svesh.lab4.dictionary;
 
 import com.svesh.lab4.exceptions.InvalidFileFormatException;
 import com.svesh.lab4.exceptions.FileReadException;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,13 +19,14 @@ public class DictionaryLoader {
         Map<String, String> dictionary = new HashMap<>();
 
         try (InputStream inputStream = DictionaryLoader.class.getClassLoader()
-                .getResourceAsStream(resourceName)) {
+                .getResourceAsStream(resourceName);
+             BufferedReader reader = new BufferedReader(
+                     new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
 
             if (inputStream == null) {
                 throw new FileReadException("Dictionary resource not found: " + resourceName);
             }
 
-            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
             String line;
             int lineNumber = 0;
 
@@ -56,7 +59,7 @@ public class DictionaryLoader {
             }
 
         } catch (IOException e) {
-            throw new FileReadException("Error reading dictionary: " + e.getMessage());
+            throw new FileReadException("Error reading dictionary: " + e.getMessage(), e);
         }
 
         return dictionary;

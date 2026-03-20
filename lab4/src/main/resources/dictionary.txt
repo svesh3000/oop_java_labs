@@ -1,0 +1,11 @@
+hello | привет
+world | мир
+good morning | доброе утро
+good | хороший
+morning | утро
+look | смотреть
+look forward to | предвкушать
+cat | кот
+black cat | черный кот
+red fox | красная лиса
+fox | лиса

@@ -3,6 +3,7 @@ package com.svesh.lab2.service;
 import com.svesh.lab2.annotation.Repeat;
 import com.svesh.lab2.util.DefaultValueGenerator;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
@@ -45,7 +46,7 @@ public class MethodInvoker {
                 if (result != null) {
                     System.out.println("Returned: " + result);
                 }
-            } catch (Exception e) {
+            } catch (InvocationTargetException | IllegalAccessException e) {
                 System.err.println("Failed to invoke method: " + e.getMessage());
             }
         }
