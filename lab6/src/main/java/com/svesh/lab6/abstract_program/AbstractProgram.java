@@ -15,7 +15,6 @@ public class AbstractProgram {
             status = newStatus;
             lock.notifyAll();
         }
-        System.out.println("[PROGRAM]: " + status.toString());
     }
 
     public Object getLock() {
@@ -43,7 +42,6 @@ public class AbstractProgram {
 
                 ProgramStatus[] values = ProgramStatus.values();
                 ProgramStatus newStatus = values[random.nextInt(values.length)];
-                System.out.println("[DAEMON]: set " + newStatus.toString());
                 setStatus(newStatus);
             }
         }

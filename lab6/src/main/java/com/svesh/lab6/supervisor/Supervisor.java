@@ -29,27 +29,25 @@ public class Supervisor extends Thread {
         while (active) {
             synchronized (lock) {
                 ProgramStatus status = program.getStatus();
-                if (status == ProgramStatus.FATAL_ERROR) {
-                    System.out.println("[SUPERVISOR]: " + status + " → terminate");
-                    terminate();
-                    return;
-                }
-                if (status == ProgramStatus.STOPPING) {
-                    System.out.println("[SUPERVISOR]: " + status + " → restarting");
-                    program.setStatus(ProgramStatus.RUNNING);
-                    continue;
-                }
-                try {
-                    lock.wait();
-                } catch (InterruptedException e) {
-                    terminate();
-                    return;
+                switch (status) {
+                    case FATAL_ERROR:
+                        System.out.println("[STATUS]: " + status + " → terminate");
+                        active = false;
+                        return;
+                    case STOPPING:
+                        System.out.println("[STATUS]: " + status + " → restarting");
+                        program.setStatus(ProgramStatus.RUNNING);
+                        break;
+                    default:
+                        System.out.println("[STATUS]: " + status);
+                        try {
+                            lock.wait();
+                        } catch (InterruptedException e) {
+                            active = false;
+                            return;
+                        }
                 }
             }
         }
-    }
-
-    private void terminate() {
-        active = false;
     }
 }
