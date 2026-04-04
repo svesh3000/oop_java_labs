@@ -4,10 +4,26 @@ import java.util.Random;
 
 public class AbstractProgram {
     private volatile ProgramStatus status = ProgramStatus.UNKNOWN;
+    private final Object lock = new Object();
+
+    public ProgramStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(ProgramStatus newStatus) {
+        synchronized (lock) {
+            status = newStatus;
+            lock.notifyAll();
+        }
+        System.out.println("[PROGRAM]: " + status.toString());
+    }
+
+    public Object getLock() {
+        return lock;
+    }
 
     public class Daemon extends Thread {
         private final long intervalMs;
-        private final Random random = new Random();
 
         public Daemon(long intervalMs) {
             this.intervalMs = intervalMs;
@@ -16,6 +32,7 @@ public class AbstractProgram {
 
         @Override
         public void run() {
+            Random random = new Random();
             while (true) {
                 try {
                     Thread.sleep(intervalMs);
@@ -25,12 +42,17 @@ public class AbstractProgram {
                 }
 
                 ProgramStatus[] values = ProgramStatus.values();
-                status = values[random.nextInt(values.length)];
+                ProgramStatus newStatus = values[random.nextInt(values.length)];
+                System.out.println("[DAEMON]: set " + newStatus.toString());
+                setStatus(newStatus);
             }
         }
     }
 
     public void startDaemon(long intervalMs) {
+        if (intervalMs <= 0) {
+            throw new IllegalArgumentException("ERROR: Interval must be positive!");
+        }
         Daemon daemon = new Daemon(intervalMs);
         daemon.start();
     }
