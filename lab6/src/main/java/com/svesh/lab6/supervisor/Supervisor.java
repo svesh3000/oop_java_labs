@@ -32,6 +32,7 @@ public class Supervisor extends Thread {
                 switch (status) {
                     case FATAL_ERROR:
                         System.out.println("[STATUS]: " + status + " → terminate");
+                        program.stopDaemon();
                         active = false;
                         return;
                     case STOPPING:
@@ -49,5 +50,10 @@ public class Supervisor extends Thread {
                 }
             }
         }
+    }
+
+    public void shutdown() {
+        active = false;
+        interrupt();
     }
 }

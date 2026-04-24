@@ -4,6 +4,7 @@ import java.util.Random;
 
 public class AbstractProgram {
     private volatile ProgramStatus status = ProgramStatus.UNKNOWN;
+    private Daemon daemon;
     private final Object lock = new Object();
 
     public ProgramStatus getStatus() {
@@ -21,10 +22,10 @@ public class AbstractProgram {
         return lock;
     }
 
-    public class Daemon extends Thread {
+    private class Daemon extends Thread {
         private final long intervalMs;
 
-        public Daemon(long intervalMs) {
+        private Daemon(long intervalMs) {
             this.intervalMs = intervalMs;
             setDaemon(true);
         }
@@ -39,7 +40,6 @@ public class AbstractProgram {
                     Thread.currentThread().interrupt();
                     break;
                 }
-
                 ProgramStatus[] values = ProgramStatus.values();
                 ProgramStatus newStatus = values[random.nextInt(values.length)];
                 setStatus(newStatus);
@@ -51,7 +51,13 @@ public class AbstractProgram {
         if (intervalMs <= 0) {
             throw new IllegalArgumentException("ERROR: Interval must be positive!");
         }
-        Daemon daemon = new Daemon(intervalMs);
+        daemon = new Daemon(intervalMs);
         daemon.start();
+    }
+
+    public void stopDaemon() {
+        if (daemon != null) {
+            daemon.interrupt();
+        }
     }
 }
