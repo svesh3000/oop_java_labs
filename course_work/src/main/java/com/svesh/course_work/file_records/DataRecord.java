@@ -1,4 +1,8 @@
 package com.svesh.course_work.file_records;
 
-public record DataRecord() {
+import com.fasterxml.jackson.databind.JsonNode;
+
+import java.time.Instant;
+
+public record DataRecord(int id, String source, Instant timestamp, JsonNode data) {
 }
