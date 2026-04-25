@@ -5,11 +5,12 @@ import com.svesh.lab6.supervisor.Supervisor;
 
 public class Main {
     public static void main(String[] args) {
-        AbstractProgram program = new AbstractProgram();
-        Supervisor supervisor = new Supervisor(program);
-        supervisor.start();
         long interval = 2000;
-        program.startDaemon(interval);
+        AbstractProgram program = new AbstractProgram(interval);
+        Supervisor supervisor = new Supervisor(program);
+
+        program.start();
+        supervisor.start();
 
         try {
             Thread.sleep(4000);

@@ -2,10 +2,33 @@ package com.svesh.lab6.abstract_program;
 
 import java.util.Random;
 
-public class AbstractProgram {
+public class AbstractProgram extends Thread {
     private volatile ProgramStatus status = ProgramStatus.UNKNOWN;
-    private Daemon daemon;
     private final Object lock = new Object();
+    private final long intervalMs;
+
+    public AbstractProgram(long intervalMs) {
+        if (intervalMs <= 0) {
+            throw new IllegalArgumentException("ERROR: Interval must be positive!");
+        }
+        this.intervalMs = intervalMs;
+    }
+
+    @Override
+    public void run() {
+        Daemon daemon = new Daemon(intervalMs);
+        daemon.start();
+
+        try {
+            while (!Thread.currentThread().isInterrupted()) {
+                Thread.sleep(Long.MAX_VALUE);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            daemon.interrupt();
+        }
+    }
 
     public ProgramStatus getStatus() {
         return status;
@@ -44,20 +67,6 @@ public class AbstractProgram {
                 ProgramStatus newStatus = values[random.nextInt(values.length)];
                 setStatus(newStatus);
             }
-        }
-    }
-
-    public void startDaemon(long intervalMs) {
-        if (intervalMs <= 0) {
-            throw new IllegalArgumentException("ERROR: Interval must be positive!");
-        }
-        daemon = new Daemon(intervalMs);
-        daemon.start();
-    }
-
-    public void stopDaemon() {
-        if (daemon != null) {
-            daemon.interrupt();
         }
     }
 }
