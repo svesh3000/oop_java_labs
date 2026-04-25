@@ -2,20 +2,20 @@ package com.svesh.course_work.api;
 
 import java.util.Map;
 
-public class FreeToGameAPI implements ApiDefinition {
+public class ScryfallAPI implements ApiDefinition {
 
     @Override
     public String getApiName() {
-        return "game";
+        return "scryfall";
     }
 
     @Override
     public String getApiURL() {
-        return "https://www.freetogame.com/api/games";
+        return "https://api.scryfall.com/cards/random";
     }
 
     @Override
     public Map<String, String> getDefaultParams() {
-        return Map.of("platform", "pc");
+        return Map.of();
     }
 }
