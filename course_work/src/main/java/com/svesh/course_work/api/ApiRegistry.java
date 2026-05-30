@@ -10,7 +10,6 @@ public class ApiRegistry {
 
     public ApiRegistry() {
         register(new MemeAPI());
-        register(new FreeToGameAPI());
         register(new ScryfallAPI());
     }
 
