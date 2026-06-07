@@ -5,12 +5,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class ApiRegistry {
-
     private final Map<String, ApiDefinition> apis = new LinkedHashMap<>();
 
     public ApiRegistry() {
-        register(new MemeAPI());
+        register(new JokeAPI());
         register(new ScryfallAPI());
+        register(new OpenMeteoAPI());
     }
 
     private void register(ApiDefinition api) {
