@@ -1,27 +1,16 @@
 package com.svesh.course_work.api;
 
 import java.util.Map;
-import java.util.Optional;
 
-public class OpenMeteoAPI implements ApiDefinition {
+public class OpenMeteoApi implements ApiDefinition {
     @Override
     public String getApiName() {
         return "open-meteo";
     }
 
     @Override
-    public String getApiURL() {
-        return "https://api.open-meteo.com";
-    }
-
-    @Override
-    public Optional<String> getDefaultEndpoint() {
-        return Optional.of("v1/forecast");
-    }
-
-    @Override
-    public Map<String, String> getDefaultPathParams() {
-        return Map.of();
+    public String getApiUrl() {
+        return "https://api.open-meteo.com/v1/forecast";
     }
 
     @Override
@@ -41,10 +30,6 @@ public class OpenMeteoAPI implements ApiDefinition {
                 Description:
                     Provides weather information.
                 
-                Examples of endpoints:
-                    v1/forecast
-                    v1/marine
-                
                 Request parameters for forecast:
                     latitude
                     longitude
@@ -54,7 +39,6 @@ public class OpenMeteoAPI implements ApiDefinition {
                     parameter=value
                 
                 Example:
-                    v1/forecast
                     latitude=50.03
                     longitude=23.56
                     current=temperature_2m,wind_speed_10m
@@ -67,13 +51,9 @@ public class OpenMeteoAPI implements ApiDefinition {
                     - precipitation         //The amount of precipitation
                 
                 Default request:
-                    v1/forecast
                     latitude=52.97
                     longitude=35.91
                     current=temperature_2m
-                
-                Docs:
-                    https://open-meteo.com/en/docs
                 """;
     }
 }

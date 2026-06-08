@@ -8,9 +8,9 @@ public class ApiRegistry {
     private final Map<String, ApiDefinition> apis = new LinkedHashMap<>();
 
     public ApiRegistry() {
-        register(new JokeAPI());
-        register(new ScryfallAPI());
-        register(new OpenMeteoAPI());
+        register(new JokeApi());
+        register(new ScryfallApi());
+        register(new OpenMeteoApi());
     }
 
     private void register(ApiDefinition api) {
