@@ -2,7 +2,7 @@ package com.svesh.course_work.export.converters;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.svesh.course_work.file_records.DataRecord;
+import com.svesh.course_work.records.DataRecord;
 
 import java.util.List;
 

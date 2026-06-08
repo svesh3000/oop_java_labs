@@ -1,4 +1,4 @@
-package com.svesh.course_work.file_records;
+package com.svesh.course_work.records;
 
 import com.fasterxml.jackson.databind.JsonNode;
 

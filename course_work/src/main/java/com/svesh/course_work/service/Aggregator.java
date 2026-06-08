@@ -2,7 +2,7 @@ package com.svesh.course_work.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.svesh.course_work.api.ApiRequest;
-import com.svesh.course_work.file_records.DataRecord;
+import com.svesh.course_work.records.DataRecord;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -11,11 +11,11 @@ import java.util.List;
 
 public class Aggregator {
     private final HttpService httpService;
-    private final JsonReceiver jsonReceiver;
+    private final JsonParser jsonParser;
 
-    public Aggregator(HttpService httpService, JsonReceiver jsonReceiver) {
+    public Aggregator(HttpService httpService, JsonParser jsonParser) {
         this.httpService = httpService;
-        this.jsonReceiver = jsonReceiver;
+        this.jsonParser = jsonParser;
     }
 
     public List<DataRecord> aggregate(List<ApiRequest> requests) throws IOException {
@@ -24,7 +24,7 @@ public class Aggregator {
         for (ApiRequest req : requests) {
             id++;
             String response = httpService.fetch(req);
-            JsonNode data = jsonReceiver.parse(response);
+            JsonNode data = jsonParser.parse(response);
             dataRecords.add(new DataRecord(id, req.api().getApiName(), Instant.now(), data));
         }
         return dataRecords;

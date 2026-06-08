@@ -1,7 +1,7 @@
 package com.svesh.course_work.export.converters;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.svesh.course_work.file_records.DataRecord;
+import com.svesh.course_work.records.DataRecord;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 
