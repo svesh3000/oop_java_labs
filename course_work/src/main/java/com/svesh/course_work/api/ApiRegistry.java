@@ -1,5 +1,9 @@
 package com.svesh.course_work.api;
 
+import com.svesh.course_work.api.impl.JokeApi;
+import com.svesh.course_work.api.impl.OpenMeteoApi;
+import com.svesh.course_work.api.impl.ScryfallApi;
+
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;

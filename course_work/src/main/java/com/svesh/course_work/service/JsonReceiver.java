@@ -7,7 +7,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class JsonReceiver {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    public JsonNode parse(String response) throws JsonProcessingException {
-        return MAPPER.readTree(response);
+    public JsonNode parse(String response) {
+        try {
+            return MAPPER.readTree(response);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Invalid JSON response", e);
+        }
     }
 }

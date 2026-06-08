@@ -1,4 +1,6 @@
-package com.svesh.course_work.api;
+package com.svesh.course_work.api.impl;
+
+import com.svesh.course_work.api.ApiDefinition;
 
 import java.util.Map;
 

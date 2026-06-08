@@ -20,10 +20,12 @@ public class Aggregator {
 
     public List<DataRecord> aggregate(List<ApiRequest> requests) throws IOException {
         List<DataRecord> dataRecords = new ArrayList<>(requests.size());
+        int id = 0;
         for (ApiRequest req : requests) {
+            id++;
             String response = httpService.fetch(req);
             JsonNode data = jsonReceiver.parse(response);
-            dataRecords.add(new DataRecord(req.api().getApiName(), Instant.now(), data));
+            dataRecords.add(new DataRecord(id, req.api().getApiName(), Instant.now(), data));
         }
         return dataRecords;
     }
