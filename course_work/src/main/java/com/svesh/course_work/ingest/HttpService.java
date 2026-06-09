@@ -1,4 +1,4 @@
-package com.svesh.course_work.service;
+package com.svesh.course_work.ingest;
 
 import com.svesh.course_work.api.ApiRequest;
 import okhttp3.*;

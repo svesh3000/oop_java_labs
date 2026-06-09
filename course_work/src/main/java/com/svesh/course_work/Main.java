@@ -1,7 +1,7 @@
 package com.svesh.course_work;
 
-import com.svesh.course_work.modes.AutomaticMode;
-import com.svesh.course_work.modes.InteractiveMode;
+import com.svesh.course_work.app.modes.AutomaticMode;
+import com.svesh.course_work.app.modes.InteractiveMode;
 
 public class Main {
     public static void main(String[] args) {

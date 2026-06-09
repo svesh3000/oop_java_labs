@@ -1,41 +1,21 @@
-package com.svesh.course_work.export.converters;
+package com.svesh.course_work.io.converters;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.svesh.course_work.records.DataRecord;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
+import com.svesh.course_work.models.DataRecord;
 
-import java.io.IOException;
-import java.io.StringWriter;
 import java.util.*;
 
-public class CsvConverter implements Converter {
-    @Override
-    public String convert(List<DataRecord> records) {
+public class CsvConverter {
+    public CsvTable convert(List<DataRecord> records) {
         List<Map<String, String>> rows = new ArrayList<>(records.size());
         for (DataRecord record : records) {
             rows.addAll(flattenRecord(record));
         }
-
-        Set<String> headers = new LinkedHashSet<>();
+        LinkedHashSet<String> headers = new LinkedHashSet<>();
         for (Map<String, String> row : rows) {
             headers.addAll(row.keySet());
         }
-
-        StringWriter writer = new StringWriter();
-        try (CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT)) {
-            printer.printRecord(headers);
-            for (Map<String, String> row : rows) {
-                List<String> values = new ArrayList<>();
-                for (String key : headers) {
-                    values.add(row.getOrDefault(key, ""));
-                }
-                printer.printRecord(values);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("CSV conversion failed", e);
-        }
-        return writer.toString();
+        return new CsvTable(List.copyOf(headers), rows);
     }
 
     private List<Map<String, String>> flattenRecord(DataRecord record) {
@@ -59,13 +39,19 @@ public class CsvConverter implements Converter {
                 flatten(new_prefix, val, row, rows);
             }
         } else if (node.isArray()) {
-            if (!node.isEmpty()) {
-                rows.remove(row);
+            if (node.isEmpty()) {
+                return;
             }
+            boolean first = true;
             for (JsonNode item : node) {
-                Map<String, String> new_row = new LinkedHashMap<>(row);
-                rows.add(new_row);
-                flatten(prefix, item, new_row, rows);
+                if (first) {
+                    flatten(prefix, item, row, rows);
+                    first = false;
+                } else {
+                    Map<String, String> newRow = new LinkedHashMap<>(row);
+                    rows.add(newRow);
+                    flatten(prefix, item, newRow, rows);
+                }
             }
         } else {
             row.put(prefix, node.asText());

@@ -1,4 +1,4 @@
-package com.svesh.course_work.service;
+package com.svesh.course_work.ingest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
