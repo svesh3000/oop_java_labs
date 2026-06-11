@@ -19,13 +19,16 @@ public class IngestService {
     }
 
     public List<DataRecord> aggregate(List<ApiRequest> requests) throws IOException {
+        return aggregate(requests, 1);
+    }
+
+    public List<DataRecord> aggregate(List<ApiRequest> requests, int startId) throws IOException {
         List<DataRecord> dataRecords = new ArrayList<>(requests.size());
-        int id = 0;
+        int id = startId;
         for (ApiRequest req : requests) {
-            id++;
             String response = httpService.fetch(req);
             JsonNode data = jsonParser.parse(response);
-            dataRecords.add(new DataRecord(id, req.api().getApiName(), Instant.now(), data));
+            dataRecords.add(new DataRecord(id++, req.api().getApiName(), Instant.now(), data));
         }
         return dataRecords;
     }

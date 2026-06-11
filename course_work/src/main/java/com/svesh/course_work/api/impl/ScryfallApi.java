@@ -30,7 +30,6 @@ public class ScryfallApi implements ApiDefinition {
 
                 Examples of query parameters for search mode:
                     q=fireball
-                    q=type:creature color:red
                     q=oracle:draw
 
                 Default request:

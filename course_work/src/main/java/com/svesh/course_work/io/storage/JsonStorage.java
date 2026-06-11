@@ -1,6 +1,7 @@
 package com.svesh.course_work.io.storage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.svesh.course_work.models.DataRecord;
 
 import java.io.IOException;
@@ -9,8 +10,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-public class JsonStorage implements Storage {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+public class JsonStorage implements Storage<List<DataRecord>> {
+    private static final ObjectMapper MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @Override
     public void write(List<DataRecord> records, Path path, WriteMode mode) {
@@ -22,6 +23,11 @@ public class JsonStorage implements Storage {
 
     private void writeCreate(List<DataRecord> records, Path path) {
         try {
+            Path parent = path.toAbsolutePath().getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+
             MAPPER.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), records);
         } catch (IOException e) {
             throw new RuntimeException("JSON write failed", e);
@@ -30,6 +36,11 @@ public class JsonStorage implements Storage {
 
     private void writeAppend(List<DataRecord> records, Path path) {
         try {
+            Path parent = path.toAbsolutePath().getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+
             List<DataRecord> allRecords = read(path);
             allRecords.addAll(records);
             MAPPER.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), allRecords);
@@ -48,5 +59,18 @@ public class JsonStorage implements Storage {
         } catch (IOException e) {
             throw new RuntimeException("JSON read failed", e);
         }
+    }
+
+    @Override
+    public int getMaxId(Path path) {
+        if (!Files.exists(path)) {
+            return 0;
+        }
+        List<DataRecord> records = read(path);
+        return records.stream()
+                .mapToInt(DataRecord::id)
+                .max()
+                .orElse(0);
+
     }
 }

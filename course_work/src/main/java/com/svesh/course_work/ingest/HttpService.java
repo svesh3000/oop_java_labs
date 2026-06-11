@@ -17,6 +17,8 @@ public class HttpService {
     public String fetch(ApiRequest request) throws IOException {
         Request httpRequest = new Request.Builder()
                 .url(buildUrl(request))
+                .header("User-Agent", "DataAggregator/1.0")
+                .header("Accept", "application/json")
                 .build();
 
         try (Response response = CLIENT.newCall(httpRequest).execute()) {

@@ -16,8 +16,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
-public class CsvStorage implements Storage {
+public class CsvStorage implements Storage<CsvTable> {
     private final CsvConverter converter = new CsvConverter();
 
     @Override
@@ -30,17 +31,23 @@ public class CsvStorage implements Storage {
     }
 
     private void writeCreate(CsvTable table, Path path) {
-        try (
-                BufferedWriter writer = Files.newBufferedWriter(path);
-                CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT)
-        ) {
-            printer.printRecord(table.headers());
-            for (Map<String, String> row : table.rows()) {
-                List<String> values = new ArrayList<>();
-                for (String header : table.headers()) {
-                    values.add(row.getOrDefault(header, ""));
+        try {
+            Path parent = path.toAbsolutePath().getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            try (
+                    BufferedWriter writer = Files.newBufferedWriter(path);
+                    CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT)
+            ) {
+                printer.printRecord(table.headers());
+                for (Map<String, String> row : table.rows()) {
+                    List<String> values = new ArrayList<>();
+                    for (String header : table.headers()) {
+                        values.add(row.getOrDefault(header, ""));
+                    }
+                    printer.printRecord(values);
                 }
-                printer.printRecord(values);
             }
         } catch (IOException e) {
             throw new RuntimeException("CSV write failed", e);
@@ -55,6 +62,15 @@ public class CsvStorage implements Storage {
             }
         } catch (IOException e) {
             throw new RuntimeException("CSV io-error in storage", e);
+        }
+
+        Path parent = path.toAbsolutePath().getParent();
+        if (parent != null) {
+            try {
+                Files.createDirectories(parent);
+            } catch (IOException e) {
+                throw new RuntimeException("Cannot create directories", e);
+            }
         }
 
         CsvTable oldTable = read(path);
@@ -88,5 +104,19 @@ public class CsvStorage implements Storage {
         } catch (IOException e) {
             throw new RuntimeException("CSV read failed", e);
         }
+    }
+
+    @Override
+    public int getMaxId(Path path) {
+        if (!Files.exists(path)) {
+            return 0;
+        }
+        CsvTable table = read(path);
+        return table.rows().stream()
+                .map(row -> row.get("id"))
+                .filter(Objects::nonNull)
+                .mapToInt(Integer::parseInt)
+                .max()
+                .orElse(0);
     }
 }

@@ -6,6 +6,7 @@ import com.svesh.course_work.api.impl.ScryfallApi;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ApiRegistry {
@@ -25,7 +26,7 @@ public class ApiRegistry {
         return apis.get(name);
     }
 
-    public Collection<ApiDefinition> getAll() {
-        return apis.values();
+    public List<ApiDefinition> getAll() {
+        return List.copyOf(apis.values());
     }
 }

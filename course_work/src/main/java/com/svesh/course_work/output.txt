@@ -1,0 +1,1508 @@
+package com.svesh.course_work;
+
+import com.svesh.course_work.app.AppContext;
+import com.svesh.course_work.app.help.HelpPrinter;
+
+import java.util.Arrays;
+
+public class Main {
+    public static void main(String[] args) {
+        AppContext context = AppContext.create();
+        if (args.length == 0) {
+            HelpPrinter.printGeneralHelp(context.getApiRegistry());
+            return;
+        }
+
+        String[] modeArgs = Arrays.copyOfRange(args, 1, args.length);
+        switch (args[0]) {
+            case "--automatic" -> context.getAutomaticMode().run(modeArgs);
+            case "--interactive" -> {
+                if (args.length > 1) {
+                    System.err.println("Warning: extra arguments");
+                }
+                context.getInteractiveMode().run();
+            }
+            case "--help" -> {
+                if (args.length > 1) {
+                    System.err.println("Warning: extra arguments");
+                }
+                HelpPrinter.printGeneralHelp(context.getApiRegistry());
+            }
+            default -> {
+                System.err.println("ERROR: Unknown mode: " + args[0]);
+                HelpPrinter.printGeneralHelp(context.getApiRegistry());
+            }
+        }
+    }
+}
+package com.svesh.course_work.api;
+
+import java.util.Map;
+
+public interface ApiDefinition {
+    String getApiName();
+
+    String getApiUrl();
+
+    Map<String, String> getDefaultQueryParams();
+
+    String getInstruction();
+}
+package com.svesh.course_work.api;
+
+import com.svesh.course_work.api.impl.JokeApi;
+import com.svesh.course_work.api.impl.OpenMeteoApi;
+import com.svesh.course_work.api.impl.ScryfallApi;
+
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+public class ApiRegistry {
+    private final Map<String, ApiDefinition> apis = new LinkedHashMap<>();
+
+    public ApiRegistry() {
+        register(new JokeApi());
+        register(new ScryfallApi());
+        register(new OpenMeteoApi());
+    }
+
+    private void register(ApiDefinition api) {
+        apis.put(api.getApiName(), api);
+    }
+
+    public ApiDefinition get(String name) {
+        return apis.get(name);
+    }
+
+    public List<ApiDefinition> getAll() {
+        return List.copyOf(apis.values());
+    }
+}
+package com.svesh.course_work.api;
+
+import java.util.Map;
+
+public record ApiRequest(
+        ApiDefinition api,
+        Map<String, String> queryParams
+) {
+}
+package com.svesh.course_work.app;
+
+import com.svesh.course_work.api.ApiRegistry;
+import com.svesh.course_work.app.io.AppRunner;
+import com.svesh.course_work.ingest.HttpService;
+import com.svesh.course_work.ingest.IngestService;
+import com.svesh.course_work.ingest.JsonParser;
+import com.svesh.course_work.io.filters.FilterFactory;
+import com.svesh.course_work.io.storage.StorageFactory;
+import com.svesh.course_work.io.viewer.ViewerFactory;
+import com.svesh.course_work.app.modes.AutomaticMode;
+import com.svesh.course_work.app.modes.InteractiveMode;
+
+public class AppContext {
+
+    private final ApiRegistry apiRegistry;
+    private final AppRunner appRunner;
+    private final AutomaticMode automaticMode;
+    private final InteractiveMode interactiveMode;
+
+    private AppContext() {
+        this.apiRegistry = new ApiRegistry();
+        this.appRunner = new AppRunner(
+                new IngestService(new HttpService(), new JsonParser()),
+                new StorageFactory(),
+                new ViewerFactory(),
+                new FilterFactory()
+        );
+        this.automaticMode = new AutomaticMode(appRunner, apiRegistry);
+        this.interactiveMode = new InteractiveMode(appRunner, apiRegistry);
+    }
+
+    public static AppContext create() {
+        return new AppContext();
+    }
+
+    public ApiRegistry getApiRegistry() {
+        return apiRegistry;
+    }
+
+    public AppRunner getAppRunner() {
+        return appRunner;
+    }
+
+    public AutomaticMode getAutomaticMode() {
+        return automaticMode;
+    }
+
+    public InteractiveMode getInteractiveMode() {
+        return interactiveMode;
+    }
+}
+package com.svesh.course_work.ingest;
+
+import com.svesh.course_work.api.ApiRequest;
+import okhttp3.*;
+
+import java.io.IOException;
+
+public class HttpService {
+    private static final OkHttpClient CLIENT = new OkHttpClient();
+
+    private String buildUrl(ApiRequest request) {
+        HttpUrl.Builder builder = HttpUrl.get(request.api().getApiUrl()).newBuilder();
+        request.queryParams().forEach(builder::addQueryParameter);
+        return builder.build().toString();
+    }
+
+    public String fetch(ApiRequest request) throws IOException {
+        Request httpRequest = new Request.Builder()
+                .url(buildUrl(request))
+                .header("User-Agent", "DataAggregator/1.0")
+                .header("Accept", "application/json")
+                .build();
+
+        try (Response response = CLIENT.newCall(httpRequest).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("HTTP error: " + response.code());
+            }
+
+            ResponseBody body = response.body();
+            if (body == null) {
+                throw new IOException("Empty response body");
+            }
+            return body.string();
+        }
+    }
+}
+package com.svesh.course_work.ingest;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.svesh.course_work.api.ApiRequest;
+import com.svesh.course_work.models.DataRecord;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+
+public class IngestService {
+    private final HttpService httpService;
+    private final JsonParser jsonParser;
+
+    public IngestService(HttpService httpService, JsonParser jsonParser) {
+        this.httpService = httpService;
+        this.jsonParser = jsonParser;
+    }
+
+    public List<DataRecord> aggregate(List<ApiRequest> requests) throws IOException {
+        return aggregate(requests, 1);
+    }
+
+    public List<DataRecord> aggregate(List<ApiRequest> requests, int startId) throws IOException {
+        List<DataRecord> dataRecords = new ArrayList<>(requests.size());
+        int id = startId;
+        for (ApiRequest req : requests) {
+            String response = httpService.fetch(req);
+            JsonNode data = jsonParser.parse(response);
+            dataRecords.add(new DataRecord(id++, req.api().getApiName(), Instant.now(), data));
+        }
+        return dataRecords;
+    }
+}
+package com.svesh.course_work.ingest;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class JsonParser {
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    public JsonNode parse(String response) {
+        try {
+            return MAPPER.readTree(response);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Invalid JSON response", e);
+        }
+    }
+}
+package com.svesh.course_work.io;
+
+public enum OutputFormat {
+    JSON("json"),
+    CSV("csv");
+
+    private final String extension;
+
+    OutputFormat(String extension) {
+        this.extension = extension;
+    }
+
+    public String extension() {
+        return extension;
+    }
+
+    public static OutputFormat fromString(String value) {
+        for (OutputFormat format : values()) {
+            if (format.name().equalsIgnoreCase(value)) {
+                return format;
+            }
+        }
+        return null;
+    }
+}
+package com.svesh.course_work.models;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+import java.time.Instant;
+
+public record DataRecord(
+        int id,
+        String source,
+        Instant timestamp,
+        JsonNode data
+) {
+}
+package com.svesh.course_work.api.impl;
+
+import com.svesh.course_work.api.ApiDefinition;
+
+import java.util.Map;
+
+public class JokeApi implements ApiDefinition {
+    @Override
+    public String getApiName() {
+        return "joke";
+}
+
+    @Override
+    public String getApiUrl() {
+        return "https://v2.jokeapi.dev/joke/Any";
+    }
+
+    @Override
+    public Map<String, String> getDefaultQueryParams() {
+        return Map.of(
+                "type", "single"
+        );
+    }
+
+    @Override
+    public String getInstruction() {
+        return """
+                JokeAPI simple manual
+
+                Query parameters:
+                    type            // "single" or "twopart"
+                    blacklistFlags  // nsfw, religious, political, racist, sexist, explicit
+                    contains        // optional keyword filter
+                
+                Example of adding query parameters:
+                    blacklistFlags=racist
+                
+                Default:
+                    type=single
+                """;
+    }
+}
+package com.svesh.course_work.api.impl;
+
+import com.svesh.course_work.api.ApiDefinition;
+
+import java.util.Map;
+
+public class OpenMeteoApi implements ApiDefinition {
+    @Override
+    public String getApiName() {
+        return "open-meteo";
+    }
+
+    @Override
+    public String getApiUrl() {
+        return "https://api.open-meteo.com/v1/forecast";
+    }
+
+    @Override
+    public Map<String, String> getDefaultQueryParams() {
+        return Map.of(
+                "latitude", "52.97",
+                "longitude", "35.91",
+                "current", "temperature_2m"
+        );
+    }
+
+    @Override
+    public String getInstruction() {
+        return """
+                Open-Meteo API simple manual
+                
+                Description:
+                    Provides weather information.
+                
+                Request parameters for forecast:
+                    latitude
+                    longitude
+                    current     //extracted weather values
+                
+                Parameter format:
+                    parameter=value
+                
+                Example:
+                    latitude=50.03
+                    longitude=23.56
+                    current=temperature_2m,wind_speed_10m
+                
+                Example of values for the "current" parameter of forecast:
+                    - temperature_2m        //The air temperature at a height of 2 meters
+                    - wind_speed_10m        //Wind speed at a height of 10 meters
+                    - relative_humidity_2m  //Relative humidity at a height of 2 meters
+                    - cloud_cover           //Percentage of clouds
+                    - precipitation         //The amount of precipitation
+                
+                Default request:
+                    latitude=52.97
+                    longitude=35.91
+                    current=temperature_2m
+                """;
+    }
+}
+package com.svesh.course_work.api.impl;
+
+import com.svesh.course_work.api.ApiDefinition;
+
+import java.util.Map;
+
+public class ScryfallApi implements ApiDefinition {
+    @Override
+    public String getApiName() {
+        return "scryfall";
+    }
+
+    @Override
+    public String getApiUrl() {
+        return "https://api.scryfall.com/cards/search";
+    }
+
+    @Override
+    public Map<String, String> getDefaultQueryParams() {
+        return Map.of("q", "dragon");
+    }
+
+    @Override
+    public String getInstruction() {
+        return """
+                Scryfall API simple manual
+
+                Description:
+                    Provides Magic:The Gathering card data, including names, prices, images, and rules text.
+
+                Examples of query parameters for search mode:
+                    q=fireball
+                    q=oracle:draw
+
+                Default request:
+                    cards/search
+                    q=dragon
+                """;
+    }
+}
+package com.svesh.course_work.app.cli;
+
+import com.svesh.course_work.io.OutputFormat;
+
+import java.nio.file.Path;
+import java.util.List;
+
+public record CliConfig(
+        OutputFormat format,
+        Path path,
+        List<String> apiNames
+) {
+}
+package com.svesh.course_work.app.cli;
+
+public class CliError extends RuntimeException {
+    private final String code;
+
+    public CliError(String code, String message) {
+        super(message);
+        this.code = code;
+    }
+
+    public String getCode() {
+        return code;
+    }
+}
+package com.svesh.course_work.app.cli;
+
+import com.svesh.course_work.api.ApiRegistry;
+import com.svesh.course_work.app.io.OutputPathResolver;
+import com.svesh.course_work.io.OutputFormat;
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+public class CliParser {
+    private final ApiRegistry registry;
+    private final OutputPathResolver pathResolver;
+
+    public CliParser(ApiRegistry registry, OutputPathResolver pathResolver) {
+        this.registry = registry;
+        this.pathResolver = pathResolver;
+    }
+
+    public CliConfig parse(String[] args) {
+        OutputFormat format = null;
+        Path path = null;
+        Set<String> apiNames = new LinkedHashSet<>();
+
+        for (int i = 0; i < args.length; i++) {
+            String arg = args[i];
+            if (arg == null || arg.isBlank()) {
+                throw new CliError(
+                        "ERR_INVALID_ARG",
+                        "Empty argument is not allowed"
+                );
+            }
+
+            switch (arg) {
+                case "--api" -> {
+                    i++;
+                    if (i >= args.length || args[i].startsWith("--")) {
+                        throw new CliError(
+                                "ERR_EMPTY_API_LIST",
+                                "No APIs specified after --api"
+                        );
+                    }
+                    while (i < args.length && !args[i].startsWith("--")) {
+                        addApi(args[i], apiNames);
+                        i++;
+                    }
+                    i--;
+                }
+                case "--format" -> {
+                    if (format != null) {
+                        throw new CliError(
+                                "ERR_CONFLICT_FORMAT",
+                                "Format specified more than once"
+                        );
+                    }
+                    i++;
+                    if (i >= args.length || args[i].startsWith("--")) {
+                        throw new CliError(
+                                "ERR_NO_FORMAT",
+                                "Format value is missing"
+                        );
+                    }
+                    format = parseFormat(args[i]);
+                }
+
+                case "--out" -> {
+                    if (path != null) {
+                        throw new CliError(
+                                "ERR_CONFLICT_OUTPUT",
+                                "Output file specified more than once"
+                        );
+                    }
+                    i++;
+                    if (i >= args.length || args[i].startsWith("--")) {
+                        throw new CliError(
+                                "ERR_INVALID_OUTPUT",
+                                "Output path is missing"
+                        );
+                    }
+                    path = Path.of(args[i].trim());
+                }
+                default -> {
+                    if (arg.startsWith("--")) {
+                        throw new CliError(
+                                "ERR_UNKNOWN_FLAG",
+                                "Unknown flag: " + arg
+                        );
+                    }
+                    throw new CliError(
+                            "ERR_INVALID_ARG",
+                            "Unexpected argument: " + arg
+                    );
+                }
+            }
+        }
+
+        if (apiNames.isEmpty()) {
+            throw new CliError(
+                    "ERR_NO_APIS",
+                    "No APIs specified"
+            );
+        }
+        if (format == null) {
+            throw new CliError(
+                    "ERR_NO_FORMAT",
+                    "Format is required"
+            );
+        }
+        path = pathResolver.resolve(path, format);
+        return new CliConfig(format, path, new ArrayList<>(apiNames));
+    }
+
+    private OutputFormat parseFormat(String value) {
+        OutputFormat requested = OutputFormat.fromString(value);
+        if (requested == null) {
+            throw new CliError(
+                    "ERR_UNKNOWN_FORMAT",
+                    "Unsupported format: " + value
+            );
+        }
+        return requested;
+    }
+
+    private void addApi(String apiName, Set<String> apiNames) {
+        if (registry.get(apiName) == null) {
+            StringBuilder available = new StringBuilder();
+            registry.getAll().forEach(api -> available.append("\n - ").append(api.getApiName()));
+
+            throw new CliError(
+                    "ERR_UNKNOWN_API",
+                    "Unknown API: " + apiName + "\nAvailable APIs:" + available
+            );
+        }
+        if (!apiNames.add(apiName)) {
+            throw new CliError(
+                    "ERR_DUPLICATE_API",
+                    "API specified multiple times: " + apiName
+            );
+        }
+    }
+}
+package com.svesh.course_work.app.help;
+
+import com.svesh.course_work.api.ApiDefinition;
+import com.svesh.course_work.api.ApiRegistry;
+import com.svesh.course_work.io.OutputFormat;
+
+import java.util.Arrays;
+
+public final class HelpPrinter {
+    private HelpPrinter() {
+    }
+
+    public static void printGeneralHelp(ApiRegistry registry) {
+        System.out.println("""
+                ==================================================
+                DATA AGGREGATOR
+                ==================================================
+                
+                Usage:
+                  --automatic     Run automatic mode
+                  --interactive   Run interactive mode
+                  --help          Show this help
+                
+                Examples:
+                  --automatic --api joke --format json
+                  --automatic --api open-meteo joke --format csv --out result
+                  --interactive
+                """);
+
+        printSupportedApis(registry);
+        printSupportedFormats();
+    }
+
+    private static void printSupportedApis(ApiRegistry registry) {
+        System.out.println("Supported APIs:");
+
+        registry.getAll()
+                .stream()
+                .map(ApiDefinition::getApiName)
+                .forEach(api -> System.out.println("  - " + api));
+    }
+
+    private static void printSupportedFormats() {
+        System.out.println();
+        System.out.println("Supported formats:");
+
+        Arrays.stream(OutputFormat.values())
+                .map(OutputFormat::name)
+                .map(String::toLowerCase)
+                .forEach(format -> System.out.println("  - " + format));
+    }
+}
+package com.svesh.course_work.app.io;
+
+import com.svesh.course_work.api.ApiRequest;
+import com.svesh.course_work.ingest.IngestService;
+import com.svesh.course_work.io.OutputFormat;
+import com.svesh.course_work.io.filters.FilterFactory;
+import com.svesh.course_work.io.storage.StorageFactory;
+import com.svesh.course_work.io.storage.WriteMode;
+import com.svesh.course_work.io.viewer.ViewerFactory;
+import com.svesh.course_work.models.DataRecord;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.List;
+
+public class AppRunner {
+    private final IngestService ingestService;
+    private final StorageFactory storageFactory;
+    private final ViewerFactory viewerFactory;
+    private final FilterFactory filterFactory;
+
+    public AppRunner(
+            IngestService ingestService,
+            StorageFactory storageFactory,
+            ViewerFactory viewerFactory, FilterFactory filterFactory
+    ) {
+        this.ingestService = ingestService;
+        this.storageFactory = storageFactory;
+        this.viewerFactory = viewerFactory;
+        this.filterFactory = filterFactory;
+    }
+
+    public void export(List<ApiRequest> requests, OutputFormat format,
+                       Path path, WriteMode mode) throws IOException {
+        var storage = storageFactory.create(format);
+        List<DataRecord> records;
+        if (mode == WriteMode.APPEND) {
+            int nextId = storage.getMaxId(path) + 1;
+            records = ingestService.aggregate(requests, nextId);
+        } else {
+            records = ingestService.aggregate(requests);
+        }
+        storage.write(records, path, mode);
+    }
+
+    public void viewAll(OutputFormat format, Path path) {
+        var storage = storageFactory.create(format);
+        var viewer = viewerFactory.create(format);
+
+        var data = storage.read(path);
+        viewer.show(data);
+    }
+
+    public void viewBySource(OutputFormat format, Path path, String source) {
+        var storage = storageFactory.create(format);
+        var viewer = viewerFactory.create(format);
+        var filter = filterFactory.create(format);
+
+        var data = storage.read(path);
+        var filtered = filter.filterBySource(data, source);
+        viewer.show(filtered);
+    }
+}
+package com.svesh.course_work.app.io;
+
+import com.svesh.course_work.app.cli.CliError;
+import com.svesh.course_work.io.OutputFormat;
+
+import java.nio.file.Path;
+
+public class OutputPathResolver {
+    public Path resolve(Path input, OutputFormat format) {
+        String extension = format.extension();
+        if (input == null) {
+            return Path.of("output." + extension);
+        }
+
+        String fileName = input.getFileName().toString();
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex == -1) {
+            return input.resolveSibling(fileName + "." + extension);
+        }
+
+        String actualExtension = fileName.substring(dotIndex + 1);
+        if (!actualExtension.equalsIgnoreCase(extension)) {
+            throw new CliError(
+                    "ERR_FORMAT_PATH_CONFLICT",
+                    "File extension '" + actualExtension + "' does not match format '" + extension + "'"
+            );
+        }
+        return input;
+    }
+}
+package com.svesh.course_work.app.modes;
+
+import com.svesh.course_work.api.ApiRegistry;
+import com.svesh.course_work.app.cli.CliConfig;
+import com.svesh.course_work.app.cli.CliError;
+import com.svesh.course_work.app.cli.CliParser;
+import com.svesh.course_work.app.io.AppRunner;
+import com.svesh.course_work.app.io.OutputPathResolver;
+import com.svesh.course_work.app.requests.RequestBuilder;
+import com.svesh.course_work.io.storage.WriteMode;
+import com.svesh.course_work.api.ApiRequest;
+
+import java.io.IOException;
+import java.util.List;
+
+public class AutomaticMode {
+    private final AppRunner runner;
+    private final RequestBuilder requestBuilder;
+    private final CliParser parser;
+
+    public AutomaticMode(AppRunner runner, ApiRegistry registry) {
+        this.runner = runner;
+        this.requestBuilder = new RequestBuilder(registry);
+        this.parser = new CliParser(registry, new OutputPathResolver());
+    }
+
+    public void run(String[] args) {
+        CliConfig config;
+        try {
+            config = parser.parse(args);
+        } catch (CliError e) {
+            System.err.println("ERROR [" + e.getCode() + "]\n" + e.getMessage());
+            return;
+        }
+
+        List<ApiRequest> requests;
+        try {
+            requests = requestBuilder.buildDefault(config.apiNames());
+        } catch (IllegalArgumentException e) {
+            System.err.println("REQUEST ERROR: " + e.getMessage());
+            return;
+        }
+
+        try {
+            runner.export(requests, config.format(), config.path(), WriteMode.APPEND);
+            System.out.println("EXPORT COMPLETED\nOUTPUT-FILE: " + config.path());
+        } catch (IOException e) {
+            System.err.println("I/O ERROR: " + e.getMessage());
+        } catch (RuntimeException e) {
+            System.err.println("ERROR: " + e.getMessage());
+        }
+    }
+}
+package com.svesh.course_work.app.modes;
+
+import com.svesh.course_work.api.ApiDefinition;
+import com.svesh.course_work.api.ApiRegistry;
+import com.svesh.course_work.api.ApiRequest;
+import com.svesh.course_work.app.cli.CliError;
+import com.svesh.course_work.app.io.AppRunner;
+import com.svesh.course_work.app.io.OutputPathResolver;
+import com.svesh.course_work.app.requests.RequestBuilder;
+import com.svesh.course_work.io.OutputFormat;
+import com.svesh.course_work.io.storage.WriteMode;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+
+public class InteractiveMode {
+    private final AppRunner runner;
+    private final ApiRegistry registry;
+    private final RequestBuilder requestBuilder;
+    private final OutputPathResolver pathResolver;
+    private final Scanner scanner = new Scanner(System.in);
+
+    public InteractiveMode(AppRunner runner, ApiRegistry registry) {
+        this.runner = runner;
+        this.registry = registry;
+        this.requestBuilder = new RequestBuilder(registry);
+        this.pathResolver = new OutputPathResolver();
+    }
+
+    public void run() {
+        System.out.println("""
+                ===== DATA AGGREGATOR =====
+                Interactive mode.
+                """);
+        while (true) {
+            System.out.println("""
+                    ===== MAIN MENU =====
+                    1. Export data from API
+                    2. View all records
+                    3. View records by source
+                    0. Exit
+                    """);
+            System.out.print("> ");
+
+            String choice = scanner.nextLine().trim();
+            switch (choice) {
+                case "1" -> exportFlow();
+                case "2" -> viewAllFlow();
+                case "3" -> viewBySourceFlow();
+                case "0" -> {
+                    System.out.println("EXIT");
+                    return;
+                }
+                default -> System.out.println(
+                        "Invalid option. Please enter numeric indexes from the list.");
+            }
+        }
+    }
+
+    private void exportFlow() {
+        System.out.println("\n--- EXPORT MODE ---");
+
+        ApiDefinition api = selectApiByName();
+        if (api == null) {
+            sayCancelled();
+            return;
+        }
+
+        Map<String, String> params = collectParams(api);
+        if (params == null) {
+            sayCancelled();
+            return;
+        }   // явная отмена через 'cancel'
+
+        OutputFormat format = selectFormat();
+        if (format == null) {
+            sayCancelled();
+            return;
+        }
+
+        Path path = askPath(format);
+        if (path == null) {
+            sayCancelled();
+            return;
+        }
+
+        WriteMode mode = selectWriteMode();
+        if (mode == null) {
+            sayCancelled();
+            return;
+        }
+
+        if (mode == WriteMode.CREATE && Files.exists(path)) {
+            System.err.println("ERROR: File already exists. Choose Append mode or use a different path.");
+            return;
+        }
+
+        ApiRequest request = requestBuilder.build(api.getApiName(), params);
+        try {
+            runner.export(List.of(request), format, path, mode);
+            System.out.println("EXPORT COMPLETED -> " + path);
+        } catch (IOException e) {
+            System.err.println("EXPORT FAILED: " + e.getMessage());
+        }
+    }
+
+    private ApiDefinition selectApiByName() {
+        List<ApiDefinition> apis = registry.getAll();
+        System.out.println("Available APIs: "
+                + apis.stream().map(ApiDefinition::getApiName).toList());
+
+        while (true) {
+            System.out.print("Enter API name (Press Enter to cancel): ");
+            String name = scanner.nextLine().trim();
+            if (name.isEmpty()) return null;
+
+            ApiDefinition api = registry.get(name);
+            if (api != null) return api;
+
+            System.out.println("Unknown API. Available: " +
+                    apis.stream().map(ApiDefinition::getApiName).toList());
+        }
+    }
+
+    private Map<String, String> collectParams(ApiDefinition api) {
+        System.out.println(api.getInstruction());
+        System.out.println("Enter parameters as key=value pairs separated by spaces.");
+        System.out.println("Press Enter to use default parameters, or type 'cancel' to abort.");
+
+        while (true) {
+            System.out.print("> ");
+            String input = scanner.nextLine().trim();
+            if (input.equalsIgnoreCase("cancel")) {
+                return null;
+            }
+            if (input.isEmpty()) {
+                return new HashMap<>(api.getDefaultQueryParams());
+            }
+
+            Map<String, String> params = new HashMap<>();
+            boolean valid = true;
+            for (String pair : input.split("\\s+")) {
+                String[] kv = pair.split("=", 2);
+                if (kv.length != 2 || kv[0].isBlank() || kv[1].isBlank()) {
+                    System.out.println("Invalid format: " + pair + ". Use key=value.");
+                    valid = false;
+                    break;
+                }
+
+                String key = kv[0].trim();
+                String value = kv[1].trim();
+                if (params.containsKey(key)) {
+                    System.out.println("Duplicate parameter: " + key
+                            + ". A parameter can only be specified once.");
+                    valid = false;
+                    break;
+                }
+                params.put(key, value);
+            }
+
+            if (valid) {
+                return params;
+            }
+            System.out.println("Please re-enter parameters, press Enter for defaults, or type 'cancel' to abort.");
+        }
+    }
+
+    private OutputFormat selectFormat() {
+        System.out.println("Format: 1=JSON, 2=CSV (Enter to cancel)");
+        while (true) {
+            System.out.print("> ");
+            String input = scanner.nextLine().trim();
+            if (input.isEmpty()) return null;
+            switch (input) {
+                case "1":
+                    return OutputFormat.JSON;
+                case "2":
+                    return OutputFormat.CSV;
+                default:
+                    System.out.println("Please enter 1 or 2.");
+            }
+        }
+    }
+
+    private Path askPath(OutputFormat format) {
+        while (true) {
+            System.out.print("Output file path (Enter to cancel): ");
+            String input = scanner.nextLine().trim();
+            if (input.isEmpty()) return null;
+            try {
+                Path path = Path.of(input);
+                return pathResolver.resolve(path, format);
+            } catch (CliError e) {
+                System.out.println("ERROR: " + e.getMessage());
+            }
+        }
+    }
+
+    private WriteMode selectWriteMode() {
+        System.out.println("Write mode: 1=Create new, 2=Append (Enter to cancel)");
+        while (true) {
+            System.out.print("> ");
+            String input = scanner.nextLine().trim();
+            if (input.isEmpty()) return null;
+            switch (input) {
+                case "1":
+                    return WriteMode.CREATE;
+                case "2":
+                    return WriteMode.APPEND;
+                default:
+                    System.out.println("Please enter 1 or 2.");
+            }
+        }
+    }
+
+    private void viewAllFlow() {
+        OutputFormat format = selectFormat();
+        if (format == null) {
+            sayCancelled();
+            return;
+        }
+
+        Path path = askPath(format);
+        if (path == null) {
+            sayCancelled();
+            return;
+        }
+
+        System.out.println("----- OUTPUT START -----");
+        try {
+            runner.viewAll(format, path);
+        } catch (RuntimeException e) {
+            System.err.println("Error: " + e.getMessage());
+        }
+        System.out.println("----- OUTPUT END -----");
+    }
+
+    private void viewBySourceFlow() {
+        OutputFormat format = selectFormat();
+        if (format == null) {
+            sayCancelled();
+            return;
+        }
+
+        Path path = askPath(format);
+        if (path == null) {
+            sayCancelled();
+            return;
+        }
+
+        String source;
+        while (true) {
+            System.out.print("Source name (Press Enter to cancel): ");
+            source = scanner.nextLine().trim();
+            if (source.isEmpty()) {
+                sayCancelled();
+                return;
+            }
+            if (!source.isBlank()) {
+                break;
+            }
+        }
+
+        System.out.println("----- OUTPUT START -----");
+        try {
+            runner.viewBySource(format, path, source);
+        } catch (RuntimeException e) {
+            System.err.println("Error: " + e.getMessage());
+        }
+        System.out.println("----- OUTPUT END -----");
+    }
+
+    private void sayCancelled() {
+        System.out.println("OPERATION CANCELLED.");
+    }
+}
+package com.svesh.course_work.app.requests;
+
+import com.svesh.course_work.api.ApiDefinition;
+import com.svesh.course_work.api.ApiRegistry;
+import com.svesh.course_work.api.ApiRequest;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+public class RequestBuilder {
+    private final ApiRegistry registry;
+
+    public RequestBuilder(ApiRegistry registry) {
+        this.registry = registry;
+    }
+
+    public List<ApiRequest> buildDefault(List<String> apiNames) {
+        List<ApiRequest> requests = new ArrayList<>();
+        for (String name : apiNames) {
+            ApiDefinition api = registry.get(name);
+            if (api == null) {
+                throw new IllegalArgumentException("Unknown API: " + name);
+            }
+            requests.add(new ApiRequest(api, api.getDefaultQueryParams()));
+        }
+        return requests;
+    }
+
+    public ApiRequest build(String apiName, Map<String, String> params) {
+        ApiDefinition api = registry.get(apiName);
+        if (api == null) {
+            throw new IllegalArgumentException("Unknown API: " + apiName);
+        }
+        return new ApiRequest(api, params);
+    }
+}
+package com.svesh.course_work.io.converters;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.svesh.course_work.models.DataRecord;
+
+import java.util.*;
+
+public class CsvConverter {
+    public CsvTable convert(List<DataRecord> records) {
+        List<Map<String, String>> rows = new ArrayList<>(records.size());
+        for (DataRecord record : records) {
+            rows.addAll(flattenRecord(record));
+        }
+        LinkedHashSet<String> headers = new LinkedHashSet<>();
+        for (Map<String, String> row : rows) {
+            headers.addAll(row.keySet());
+        }
+        return new CsvTable(List.copyOf(headers), rows);
+    }
+
+    private List<Map<String, String>> flattenRecord(DataRecord record) {
+        List<Map<String, String>> rows = new ArrayList<>();
+        Map<String, String> row = new LinkedHashMap<>();
+        rows.add(row);
+        row.put("id", String.valueOf(record.id()));
+        row.put("source", record.source());
+        row.put("timestamp", record.timestamp().toString());
+        flatten("data", record.data(), row, rows);
+        return rows;
+    }
+
+    private void flatten(String prefix, JsonNode node, Map<String, String> row, List<Map<String, String>> rows) {
+        if (node.isObject()) {
+            for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
+                Map.Entry<String, JsonNode> entry = it.next();
+                String key = entry.getKey();
+                JsonNode val = entry.getValue();
+                String new_prefix = prefix.isEmpty() ? key : prefix + "." + key;
+                flatten(new_prefix, val, row, rows);
+            }
+        } else if (node.isArray()) {
+            if (node.isEmpty()) {
+                return;
+            }
+            boolean first = true;
+            for (JsonNode item : node) {
+                if (first) {
+                    flatten(prefix, item, row, rows);
+                    first = false;
+                } else {
+                    Map<String, String> newRow = new LinkedHashMap<>(row);
+                    rows.add(newRow);
+                    flatten(prefix, item, newRow, rows);
+                }
+            }
+        } else {
+            row.put(prefix, node.asText());
+        }
+    }
+}
+package com.svesh.course_work.io.converters;
+
+import java.util.List;
+import java.util.Map;
+
+public record CsvTable(
+        List<String> headers,
+        List<Map<String, String>> rows
+) {
+}
+package com.svesh.course_work.io.filters;
+
+import com.svesh.course_work.io.converters.CsvTable;
+
+import java.util.List;
+import java.util.Map;
+
+public class CsvFilter implements Filter<CsvTable> {
+    @Override
+    public CsvTable filterBySource(CsvTable table, String source) {
+        List<Map<String,String>> filteredRows = table.rows().stream()
+                        .filter(row -> source.equals(row.get("source")))
+                        .toList();
+        return new CsvTable(table.headers(), filteredRows);
+    }
+}
+package com.svesh.course_work.io.filters;
+
+public interface Filter<T> {
+    T filterBySource(T data, String source);
+}
+package com.svesh.course_work.io.filters;
+
+import com.svesh.course_work.io.OutputFormat;
+
+public class FilterFactory {
+    public Filter create(OutputFormat format) {
+        return switch (format) {
+            case JSON -> new JsonFilter();
+            case CSV -> new CsvFilter();
+        };
+    }
+}
+package com.svesh.course_work.io.filters;
+
+import com.svesh.course_work.models.DataRecord;
+
+import java.util.List;
+
+public class JsonFilter implements Filter<List<DataRecord>> {
+    @Override
+    public List<DataRecord> filterBySource(List<DataRecord> data, String source) {
+        return data.stream()
+                .filter(record -> record.source().equals(source))
+                .toList();
+    }
+}
+package com.svesh.course_work.io.storage;
+
+import com.svesh.course_work.io.converters.CsvConverter;
+import com.svesh.course_work.io.converters.CsvTable;
+import com.svesh.course_work.models.DataRecord;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.csv.CSVRecord;
+
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+public class CsvStorage implements Storage<CsvTable> {
+    private final CsvConverter converter = new CsvConverter();
+
+    @Override
+    public void write(List<DataRecord> records, Path path, WriteMode mode) {
+        CsvTable table = converter.convert(records);
+        switch (mode) {
+            case CREATE -> writeCreate(table, path);
+            case APPEND -> writeAppend(table, path);
+        }
+    }
+
+    private void writeCreate(CsvTable table, Path path) {
+        try {
+            Path parent = path.toAbsolutePath().getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            try (
+                    BufferedWriter writer = Files.newBufferedWriter(path);
+                    CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT)
+            ) {
+                printer.printRecord(table.headers());
+                for (Map<String, String> row : table.rows()) {
+                    List<String> values = new ArrayList<>();
+                    for (String header : table.headers()) {
+                        values.add(row.getOrDefault(header, ""));
+                    }
+                    printer.printRecord(values);
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("CSV write failed", e);
+        }
+    }
+
+    private void writeAppend(CsvTable table, Path path) {
+        try {
+            if (!Files.exists(path) || Files.size(path) == 0) {
+                writeCreate(table, path);
+                return;
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("CSV io-error in storage", e);
+        }
+
+        Path parent = path.toAbsolutePath().getParent();
+        if (parent != null) {
+            try {
+                Files.createDirectories(parent);
+            } catch (IOException e) {
+                throw new RuntimeException("Cannot create directories", e);
+            }
+        }
+
+        CsvTable oldTable = read(path);
+
+        List<String> mergedHeaders = new ArrayList<>(oldTable.headers());
+        for (String header : table.headers()) {
+            if (!mergedHeaders.contains(header)) {
+                mergedHeaders.add(header);
+            }
+        }
+
+        List<Map<String, String>> mergedRows = new ArrayList<>(oldTable.rows());
+        mergedRows.addAll(table.rows());
+        CsvTable merged = new CsvTable(mergedHeaders, mergedRows);
+        writeCreate(merged, path);
+    }
+
+    public CsvTable read(Path path) {
+        try (
+                Reader reader = Files.newBufferedReader(path);
+                CSVParser parser = CSVFormat.DEFAULT
+                        .withFirstRecordAsHeader()
+                        .parse(reader)
+        ) {
+            List<String> headers = new ArrayList<>(parser.getHeaderMap().keySet());
+            List<Map<String, String>> rows = new ArrayList<>();
+            for (CSVRecord record : parser) {
+                rows.add(record.toMap());
+            }
+            return new CsvTable(headers, rows);
+        } catch (IOException e) {
+            throw new RuntimeException("CSV read failed", e);
+        }
+    }
+
+    @Override
+    public int getMaxId(Path path) {
+        if (!Files.exists(path)) {
+            return 0;
+        }
+        CsvTable table = read(path);
+        return table.rows().stream()
+                .map(row -> row.get("id"))
+                .filter(Objects::nonNull)
+                .mapToInt(Integer::parseInt)
+                .max()
+                .orElse(0);
+    }
+}
+package com.svesh.course_work.io.storage;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.svesh.course_work.models.DataRecord;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+public class JsonStorage implements Storage<List<DataRecord>> {
+    private static final ObjectMapper MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
+
+    @Override
+    public void write(List<DataRecord> records, Path path, WriteMode mode) {
+        switch (mode) {
+            case CREATE -> writeCreate(records, path);
+            case APPEND -> writeAppend(records, path);
+        }
+    }
+
+    private void writeCreate(List<DataRecord> records, Path path) {
+        try {
+            Path parent = path.toAbsolutePath().getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+
+            MAPPER.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), records);
+        } catch (IOException e) {
+            throw new RuntimeException("JSON write failed", e);
+        }
+    }
+
+    private void writeAppend(List<DataRecord> records, Path path) {
+        try {
+            Path parent = path.toAbsolutePath().getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+
+            List<DataRecord> allRecords = read(path);
+            allRecords.addAll(records);
+            MAPPER.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), allRecords);
+        } catch (IOException e) {
+            throw new RuntimeException("JSON append failed", e);
+        }
+    }
+
+    public List<DataRecord> read(Path path) {
+        try {
+            if (!Files.exists(path) || Files.size(path) == 0) {
+                return new ArrayList<>();
+            }
+            DataRecord[] records = MAPPER.readValue(path.toFile(), DataRecord[].class);
+            return new ArrayList<>(List.of(records));
+        } catch (IOException e) {
+            throw new RuntimeException("JSON read failed", e);
+        }
+    }
+
+    @Override
+    public int getMaxId(Path path) {
+        if (!Files.exists(path)) {
+            return 0;
+        }
+        List<DataRecord> records = read(path);
+        return records.stream()
+                .mapToInt(DataRecord::id)
+                .max()
+                .orElse(0);
+
+    }
+}
+package com.svesh.course_work.io.storage;
+
+import com.svesh.course_work.models.DataRecord;
+
+import java.nio.file.Path;
+import java.util.List;
+
+public interface Storage<T> {
+    void write(List<DataRecord> records, Path path, WriteMode mode);
+    T read(Path path);
+    int getMaxId(Path path);
+}
+package com.svesh.course_work.io.storage;
+
+import com.svesh.course_work.io.OutputFormat;
+
+public class StorageFactory {
+    public Storage create(OutputFormat format) {
+        return switch (format) {
+            case JSON -> new JsonStorage();
+            case CSV -> new CsvStorage();
+        };
+    }
+}
+package com.svesh.course_work.io.storage;
+
+public enum WriteMode {
+    CREATE,
+    APPEND
+}
+package com.svesh.course_work.io.viewer;
+
+import com.svesh.course_work.io.converters.CsvTable;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+public class CsvViewer implements Viewer<CsvTable> {
+    @Override
+    public void show(CsvTable table) {
+        if (table.rows().isEmpty()) {
+            System.out.println("NO DATA");
+            return;
+        }
+
+        System.out.println(String.join(",", table.headers()));
+        for (Map<String, String> row : table.rows()) {
+            List<String> values = new ArrayList<>();
+            for (String header : table.headers()) {
+                values.add(row.getOrDefault(header, ""));
+            }
+            System.out.println(String.join(",", values));
+        }
+    }
+}
+package com.svesh.course_work.io.viewer;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.svesh.course_work.models.DataRecord;
+
+import java.util.List;
+
+public class JsonViewer implements Viewer<List<DataRecord>> {
+    private static final ObjectMapper MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());;
+
+    @Override
+    public void show(List<DataRecord> data) {
+        if (data.isEmpty()) {
+            System.out.println("NO DATA");
+            return;
+        }
+
+        try {
+            System.out.println(MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(data));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("JSON view failed", e);
+        }
+    }
+}
+package com.svesh.course_work.io.viewer;
+
+public interface Viewer<T> {
+    void show(T data);
+}
+package com.svesh.course_work.io.viewer;
+
+import com.svesh.course_work.io.OutputFormat;
+
+public class ViewerFactory {
+    public Viewer create(OutputFormat format) {
+        return switch (format) {
+            case JSON -> new JsonViewer();
+            case CSV -> new CsvViewer();
+        };
+    }
+}
