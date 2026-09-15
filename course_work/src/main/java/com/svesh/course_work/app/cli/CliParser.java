@@ -4,6 +4,7 @@ import com.svesh.course_work.api.ApiRegistry;
 import com.svesh.course_work.app.io.OutputPathResolver;
 import com.svesh.course_work.io.OutputFormat;
 
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -27,7 +28,7 @@ public class CliParser {
             String arg = args[i];
             if (arg == null || arg.isBlank()) {
                 throw new CliError(
-                        "ERR_INVALID_ARG",
+                        CliError.Code.ERR_INVALID_ARG,
                         "Empty argument is not allowed"
                 );
             }
@@ -37,7 +38,7 @@ public class CliParser {
                     i++;
                     if (i >= args.length || args[i].startsWith("--")) {
                         throw new CliError(
-                                "ERR_EMPTY_API_LIST",
+                                CliError.Code.ERR_EMPTY_API_LIST,
                                 "No APIs specified after --api"
                         );
                     }
@@ -50,14 +51,14 @@ public class CliParser {
                 case "--format" -> {
                     if (format != null) {
                         throw new CliError(
-                                "ERR_CONFLICT_FORMAT",
+                                CliError.Code.ERR_CONFLICT_FORMAT,
                                 "Format specified more than once"
                         );
                     }
                     i++;
                     if (i >= args.length || args[i].startsWith("--")) {
                         throw new CliError(
-                                "ERR_NO_FORMAT",
+                                CliError.Code.ERR_NO_FORMAT,
                                 "Format value is missing"
                         );
                     }
@@ -67,28 +68,33 @@ public class CliParser {
                 case "--out" -> {
                     if (path != null) {
                         throw new CliError(
-                                "ERR_CONFLICT_OUTPUT",
+                                CliError.Code.ERR_CONFLICT_OUTPUT,
                                 "Output file specified more than once"
                         );
                     }
                     i++;
                     if (i >= args.length || args[i].startsWith("--")) {
                         throw new CliError(
-                                "ERR_INVALID_OUTPUT",
+                                CliError.Code.ERR_INVALID_OUTPUT,
                                 "Output path is missing"
                         );
                     }
-                    path = Path.of(args[i].trim());
+                    try {
+                        path = Path.of(args[i].trim());
+                    } catch (InvalidPathException e) {
+                        throw new CliError(CliError.Code.ERR_INVALID_OUTPUT,
+                                "Invalid output path: " + args[i] + " (" + e.getMessage() + ")");
+                    }
                 }
                 default -> {
                     if (arg.startsWith("--")) {
                         throw new CliError(
-                                "ERR_UNKNOWN_FLAG",
+                                CliError.Code.ERR_UNKNOWN_FLAG,
                                 "Unknown flag: " + arg
                         );
                     }
                     throw new CliError(
-                            "ERR_INVALID_ARG",
+                            CliError.Code.ERR_INVALID_ARG,
                             "Unexpected argument: " + arg
                     );
                 }
@@ -97,16 +103,17 @@ public class CliParser {
 
         if (apiNames.isEmpty()) {
             throw new CliError(
-                    "ERR_NO_APIS",
+                    CliError.Code.ERR_NO_APIS,
                     "No APIs specified"
             );
         }
         if (format == null) {
             throw new CliError(
-                    "ERR_NO_FORMAT",
+                    CliError.Code.ERR_NO_FORMAT,
                     "Format is required"
             );
         }
+        path = (path == null) ? Path.of("output") : path;
         path = pathResolver.resolve(path, format);
         return new CliConfig(format, path, new ArrayList<>(apiNames));
     }
@@ -114,9 +121,13 @@ public class CliParser {
     private OutputFormat parseFormat(String value) {
         OutputFormat requested = OutputFormat.fromString(value);
         if (requested == null) {
+            StringBuilder available = new StringBuilder();
+            for (OutputFormat format : OutputFormat.values()) {
+                available.append("\n - ").append(format.extension());
+            }
             throw new CliError(
-                    "ERR_UNKNOWN_FORMAT",
-                    "Unsupported format: " + value
+                    CliError.Code.ERR_UNKNOWN_FORMAT,
+                    "Unsupported format: " + value + "\nAvailable formats:" + available
             );
         }
         return requested;
@@ -128,13 +139,13 @@ public class CliParser {
             registry.getAll().forEach(api -> available.append("\n - ").append(api.getApiName()));
 
             throw new CliError(
-                    "ERR_UNKNOWN_API",
+                    CliError.Code.ERR_UNKNOWN_API,
                     "Unknown API: " + apiName + "\nAvailable APIs:" + available
             );
         }
         if (!apiNames.add(apiName)) {
             throw new CliError(
-                    "ERR_DUPLICATE_API",
+                    CliError.Code.ERR_DUPLICATE_API,
                     "API specified multiple times: " + apiName
             );
         }

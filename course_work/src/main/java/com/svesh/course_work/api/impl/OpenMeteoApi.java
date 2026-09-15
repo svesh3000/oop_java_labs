@@ -1,8 +1,10 @@
 package com.svesh.course_work.api.impl;
 
 import com.svesh.course_work.api.ApiDefinition;
+import com.svesh.course_work.api.ParamSpec;
 
 import java.util.Map;
+import java.util.Set;
 
 public class OpenMeteoApi implements ApiDefinition {
     @Override
@@ -16,11 +18,21 @@ public class OpenMeteoApi implements ApiDefinition {
     }
 
     @Override
+    public Map<String, ParamSpec> getParamSpecs() {
+        return Map.of(
+                "latitude", ParamSpec.freeRequired(),
+                "longitude", ParamSpec.freeRequired(),
+                "current", ParamSpec.optionalMulti(Set.of(
+                        "temperature_2m", "wind_speed_10m", "relative_humidity_2m",
+                        "cloud_cover", "precipitation"))
+        );
+    }
+
+    @Override
     public Map<String, String> getDefaultQueryParams() {
         return Map.of(
                 "latitude", "52.97",
-                "longitude", "35.91",
-                "current", "temperature_2m"
+                "longitude", "35.91"
         );
     }
 
@@ -33,12 +45,16 @@ public class OpenMeteoApi implements ApiDefinition {
                     Provides weather information.
                 
                 Request parameters for forecast:
-                    latitude
-                    longitude
-                    current     //extracted weather values
+                    latitude    //(required parameter)
+                    longitude   //(required parameter)
+                    current     //(optional parameter) extracted weather values
                 
                 Parameter format:
                     parameter=value
+                
+                Required parameters (default values used if not specified):
+                    latitude=52.97
+                    longitude=35.91
                 
                 Example:
                     latitude=50.03
@@ -51,11 +67,6 @@ public class OpenMeteoApi implements ApiDefinition {
                     - relative_humidity_2m  //Relative humidity at a height of 2 meters
                     - cloud_cover           //Percentage of clouds
                     - precipitation         //The amount of precipitation
-                
-                Default request:
-                    latitude=52.97
-                    longitude=35.91
-                    current=temperature_2m
                 """;
     }
 }

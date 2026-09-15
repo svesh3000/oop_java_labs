@@ -7,6 +7,8 @@ public interface ApiDefinition {
 
     String getApiUrl();
 
+    Map<String, ParamSpec> getParamSpecs();
+
     Map<String, String> getDefaultQueryParams();
 
     String getInstruction();

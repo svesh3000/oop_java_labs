@@ -8,20 +8,23 @@ import java.nio.file.Path;
 public class OutputPathResolver {
     public Path resolve(Path input, OutputFormat format) {
         String extension = format.extension();
-        if (input == null) {
-            return Path.of("output." + extension);
+
+        Path fileName = input.getFileName();
+        if (fileName == null) {
+            throw new CliError(CliError.Code.ERR_INVALID_OUTPUT, "Path must point to a file, not a root: " + input);
         }
 
-        String fileName = input.getFileName().toString();
-        int dotIndex = fileName.lastIndexOf('.');
-        if (dotIndex == -1) {
-            return input.resolveSibling(fileName + "." + extension);
+        String name = fileName.toString();
+        int dotIndex = name.lastIndexOf('.');
+        if (dotIndex == -1 || dotIndex == name.length() - 1) {
+            String base = dotIndex == -1 ? name : name.substring(0, dotIndex);
+            return input.resolveSibling(base + "." + extension);
         }
 
-        String actualExtension = fileName.substring(dotIndex + 1);
+        String actualExtension = name.substring(dotIndex + 1);
         if (!actualExtension.equalsIgnoreCase(extension)) {
             throw new CliError(
-                    "ERR_FORMAT_PATH_CONFLICT",
+                    CliError.Code.ERR_FORMAT_PATH_CONFLICT,
                     "File extension '" + actualExtension + "' does not match format '" + extension + "'"
             );
         }

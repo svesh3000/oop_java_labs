@@ -23,7 +23,9 @@ public class HttpService {
 
         try (Response response = CLIENT.newCall(httpRequest).execute()) {
             if (!response.isSuccessful()) {
-                throw new IOException("HTTP error: " + response.code());
+                String msg = response.message();
+                String suffix = (msg == null || msg.isEmpty()) ? "" : " " + msg;
+                throw new IOException("HTTP error: " + response.code() + suffix);
             }
 
             ResponseBody body = response.body();

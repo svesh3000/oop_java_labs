@@ -15,23 +15,20 @@ public class RequestBuilder {
         this.registry = registry;
     }
 
-    public List<ApiRequest> buildDefault(List<String> apiNames) {
-        List<ApiRequest> requests = new ArrayList<>();
+    public List<ApiRequest> build(List<String> apiNames,
+                                  Map<String, Map<String, String>> paramsByApi) {
+        List<ApiRequest> requests = new ArrayList<>(apiNames.size());
         for (String name : apiNames) {
             ApiDefinition api = registry.get(name);
             if (api == null) {
                 throw new IllegalArgumentException("Unknown API: " + name);
             }
-            requests.add(new ApiRequest(api, api.getDefaultQueryParams()));
+            Map<String, String> params = paramsByApi.get(name);
+            if (params == null) {
+                params = api.getDefaultQueryParams();
+            }
+            requests.add(new ApiRequest(api, params));
         }
         return requests;
-    }
-
-    public ApiRequest build(String apiName, Map<String, String> params) {
-        ApiDefinition api = registry.get(apiName);
-        if (api == null) {
-            throw new IllegalArgumentException("Unknown API: " + apiName);
-        }
-        return new ApiRequest(api, params);
     }
 }

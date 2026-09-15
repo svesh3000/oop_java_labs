@@ -14,13 +14,12 @@ import com.svesh.course_work.app.modes.InteractiveMode;
 public class AppContext {
 
     private final ApiRegistry apiRegistry;
-    private final AppRunner appRunner;
     private final AutomaticMode automaticMode;
     private final InteractiveMode interactiveMode;
 
     private AppContext() {
         this.apiRegistry = new ApiRegistry();
-        this.appRunner = new AppRunner(
+        AppRunner appRunner = new AppRunner(
                 new IngestService(new HttpService(), new JsonParser()),
                 new StorageFactory(),
                 new ViewerFactory(),
@@ -36,10 +35,6 @@ public class AppContext {
 
     public ApiRegistry getApiRegistry() {
         return apiRegistry;
-    }
-
-    public AppRunner getAppRunner() {
-        return appRunner;
     }
 
     public AutomaticMode getAutomaticMode() {

@@ -21,6 +21,11 @@ public final class HelpPrinter {
                   --interactive   Run interactive mode
                   --help          Show this help
                 
+                Flags for automatic mode:
+                  --api           One or more API names (required flag)
+                  --format        File format           (required flag)
+                  --out           Output file path      (optional flag, default: output.<format>)
+                
                 Examples:
                   --automatic --api joke --format json
                   --automatic --api open-meteo joke --format csv --out result
@@ -28,6 +33,7 @@ public final class HelpPrinter {
                 """);
 
         printSupportedApis(registry);
+        System.out.println();
         printSupportedFormats();
     }
 
@@ -41,7 +47,6 @@ public final class HelpPrinter {
     }
 
     private static void printSupportedFormats() {
-        System.out.println();
         System.out.println("Supported formats:");
 
         Arrays.stream(OutputFormat.values())

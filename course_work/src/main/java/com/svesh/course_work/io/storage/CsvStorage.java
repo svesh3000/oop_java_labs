@@ -32,45 +32,36 @@ public class CsvStorage implements Storage<CsvTable> {
 
     private void writeCreate(CsvTable table, Path path) {
         try {
-            Path parent = path.toAbsolutePath().getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            try (
-                    BufferedWriter writer = Files.newBufferedWriter(path);
-                    CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT)
-            ) {
-                printer.printRecord(table.headers());
-                for (Map<String, String> row : table.rows()) {
-                    List<String> values = new ArrayList<>();
-                    for (String header : table.headers()) {
-                        values.add(row.getOrDefault(header, ""));
+            AtomicFileWriter.write(path, tmp -> {
+                try (BufferedWriter writer = Files.newBufferedWriter(tmp);
+                     CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT)) {
+                    printer.printRecord(table.headers());
+                    for (Map<String, String> row : table.rows()) {
+                        List<String> values = new ArrayList<>();
+                        for (String header : table.headers()) {
+                            values.add(row.getOrDefault(header, ""));
+                        }
+                        printer.printRecord(values);
                     }
-                    printer.printRecord(values);
                 }
-            }
+            });
         } catch (IOException e) {
             throw new RuntimeException("CSV write failed", e);
         }
     }
 
     private void writeAppend(CsvTable table, Path path) {
+        if (!Files.exists(path)) {
+            writeCreate(table, path);
+            return;
+        }
         try {
-            if (!Files.exists(path) || Files.size(path) == 0) {
+            if (Files.size(path) == 0) {
                 writeCreate(table, path);
                 return;
             }
         } catch (IOException e) {
             throw new RuntimeException("CSV io-error in storage", e);
-        }
-
-        Path parent = path.toAbsolutePath().getParent();
-        if (parent != null) {
-            try {
-                Files.createDirectories(parent);
-            } catch (IOException e) {
-                throw new RuntimeException("Cannot create directories", e);
-            }
         }
 
         CsvTable oldTable = read(path);
@@ -84,8 +75,7 @@ public class CsvStorage implements Storage<CsvTable> {
 
         List<Map<String, String>> mergedRows = new ArrayList<>(oldTable.rows());
         mergedRows.addAll(table.rows());
-        CsvTable merged = new CsvTable(mergedHeaders, mergedRows);
-        writeCreate(merged, path);
+        writeCreate(new CsvTable(mergedHeaders, mergedRows), path);
     }
 
     public CsvTable read(Path path) {

@@ -23,30 +23,17 @@ public class JsonStorage implements Storage<List<DataRecord>> {
 
     private void writeCreate(List<DataRecord> records, Path path) {
         try {
-            Path parent = path.toAbsolutePath().getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-
-            MAPPER.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), records);
+            AtomicFileWriter.write(path, tmp ->
+                    MAPPER.writerWithDefaultPrettyPrinter().writeValue(tmp.toFile(), records));
         } catch (IOException e) {
             throw new RuntimeException("JSON write failed", e);
         }
     }
 
     private void writeAppend(List<DataRecord> records, Path path) {
-        try {
-            Path parent = path.toAbsolutePath().getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-
-            List<DataRecord> allRecords = read(path);
-            allRecords.addAll(records);
-            MAPPER.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), allRecords);
-        } catch (IOException e) {
-            throw new RuntimeException("JSON append failed", e);
-        }
+        List<DataRecord> allRecords = read(path);
+        allRecords.addAll(records);
+        writeCreate(allRecords, path);
     }
 
     public List<DataRecord> read(Path path) {

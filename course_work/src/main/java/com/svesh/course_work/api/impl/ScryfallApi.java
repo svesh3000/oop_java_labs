@@ -1,6 +1,7 @@
 package com.svesh.course_work.api.impl;
 
 import com.svesh.course_work.api.ApiDefinition;
+import com.svesh.course_work.api.ParamSpec;
 
 import java.util.Map;
 
@@ -16,6 +17,11 @@ public class ScryfallApi implements ApiDefinition {
     }
 
     @Override
+    public Map<String, ParamSpec> getParamSpecs() {
+        return Map.of("q", ParamSpec.freeRequired());
+    }
+
+    @Override
     public Map<String, String> getDefaultQueryParams() {
         return Map.of("q", "dragon");
     }
@@ -24,17 +30,16 @@ public class ScryfallApi implements ApiDefinition {
     public String getInstruction() {
         return """
                 Scryfall API simple manual
-
+                
                 Description:
                     Provides Magic:The Gathering card data, including names, prices, images, and rules text.
-
-                Examples of query parameters for search mode:
+                
+                Required request parameter (default value used if not specified):
+                    q=dragon
+                
+                Examples of query parameters:
                     q=fireball
                     q=oracle:draw
-
-                Default request:
-                    cards/search
-                    q=dragon
                 """;
     }
 }

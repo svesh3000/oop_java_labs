@@ -34,12 +34,8 @@ public class AppRunner {
                        Path path, WriteMode mode) throws IOException {
         var storage = storageFactory.create(format);
         List<DataRecord> records;
-        if (mode == WriteMode.APPEND) {
-            int nextId = storage.getMaxId(path) + 1;
-            records = ingestService.aggregate(requests, nextId);
-        } else {
-            records = ingestService.aggregate(requests);
-        }
+        int nextId = mode == WriteMode.APPEND ? storage.getMaxId(path) + 1 : 1;
+        records = ingestService.aggregate(requests, nextId);
         storage.write(records, path, mode);
     }
 

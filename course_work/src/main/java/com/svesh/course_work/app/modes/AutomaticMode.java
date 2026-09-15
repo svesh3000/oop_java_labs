@@ -12,6 +12,7 @@ import com.svesh.course_work.api.ApiRequest;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 public class AutomaticMode {
     private final AppRunner runner;
@@ -24,30 +25,33 @@ public class AutomaticMode {
         this.parser = new CliParser(registry, new OutputPathResolver());
     }
 
-    public void run(String[] args) {
+    public int run(String[] args) {
         CliConfig config;
         try {
             config = parser.parse(args);
         } catch (CliError e) {
-            System.err.println("ERROR [" + e.getCode() + "]\n" + e.getMessage());
-            return;
+            System.err.println("ERROR [" + e.getCode() + "] " + e.getMessage());
+            return 2;
         }
 
         List<ApiRequest> requests;
         try {
-            requests = requestBuilder.buildDefault(config.apiNames());
+            requests = requestBuilder.build(config.apiNames(), Map.of());
         } catch (IllegalArgumentException e) {
             System.err.println("REQUEST ERROR: " + e.getMessage());
-            return;
+            return 1;
         }
 
         try {
             runner.export(requests, config.format(), config.path(), WriteMode.APPEND);
             System.out.println("EXPORT COMPLETED\nOUTPUT-FILE: " + config.path());
+            return 0;
         } catch (IOException e) {
             System.err.println("I/O ERROR: " + e.getMessage());
+            return 1;
         } catch (RuntimeException e) {
             System.err.println("ERROR: " + e.getMessage());
+            return 1;
         }
     }
 }

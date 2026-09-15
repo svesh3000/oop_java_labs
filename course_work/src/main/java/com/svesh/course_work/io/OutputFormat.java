@@ -1,5 +1,7 @@
 package com.svesh.course_work.io;
 
+import java.nio.file.Path;
+
 public enum OutputFormat {
     JSON("json"),
     CSV("csv");
@@ -21,5 +23,23 @@ public enum OutputFormat {
             }
         }
         return null;
+    }
+
+    public static OutputFormat fromPath(Path path) {
+        if (path == null) {
+            return null;
+        }
+        Path fileName = path.getFileName();
+        if (fileName == null) {
+            return null;
+        }
+
+        String name = fileName.toString();
+        int dot = name.lastIndexOf('.');
+        if (dot < 0 || dot == name.length() - 1) {
+            return null;
+        }
+
+        return fromString(name.substring(dot + 1));
     }
 }

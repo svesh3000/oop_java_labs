@@ -35,8 +35,8 @@ public class CsvConverter {
                 Map.Entry<String, JsonNode> entry = it.next();
                 String key = entry.getKey();
                 JsonNode val = entry.getValue();
-                String new_prefix = prefix.isEmpty() ? key : prefix + "." + key;
-                flatten(new_prefix, val, row, rows);
+                String newPrefix = prefix.isEmpty() ? key : prefix + "." + key;
+                flatten(newPrefix, val, row, rows);
             }
         } else if (node.isArray()) {
             if (node.isEmpty()) {

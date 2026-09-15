@@ -18,10 +18,6 @@ public class IngestService {
         this.jsonParser = jsonParser;
     }
 
-    public List<DataRecord> aggregate(List<ApiRequest> requests) throws IOException {
-        return aggregate(requests, 1);
-    }
-
     public List<DataRecord> aggregate(List<ApiRequest> requests, int startId) throws IOException {
         List<DataRecord> dataRecords = new ArrayList<>(requests.size());
         int id = startId;
