@@ -2,14 +2,14 @@ package com.svesh.course_work.app;
 
 import com.svesh.course_work.api.ApiRegistry;
 import com.svesh.course_work.app.io.AppRunner;
+import com.svesh.course_work.app.modes.AutomaticMode;
+import com.svesh.course_work.app.modes.InteractiveMode;
 import com.svesh.course_work.ingest.HttpService;
 import com.svesh.course_work.ingest.IngestService;
 import com.svesh.course_work.ingest.JsonParser;
 import com.svesh.course_work.io.filters.FilterFactory;
 import com.svesh.course_work.io.storage.StorageFactory;
 import com.svesh.course_work.io.viewer.ViewerFactory;
-import com.svesh.course_work.app.modes.AutomaticMode;
-import com.svesh.course_work.app.modes.InteractiveMode;
 
 public class AppContext {
 

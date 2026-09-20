@@ -8,6 +8,8 @@ import java.util.List;
 public record CliConfig(
         OutputFormat format,
         Path path,
-        List<String> apiNames
+        List<String> apiNames,
+        int maxThreads,
+        int intervalSeconds
 ) {
 }

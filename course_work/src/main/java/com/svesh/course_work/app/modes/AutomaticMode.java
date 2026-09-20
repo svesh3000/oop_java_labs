@@ -1,6 +1,7 @@
 package com.svesh.course_work.app.modes;
 
 import com.svesh.course_work.api.ApiRegistry;
+import com.svesh.course_work.api.ApiRequest;
 import com.svesh.course_work.app.cli.CliConfig;
 import com.svesh.course_work.app.cli.CliError;
 import com.svesh.course_work.app.cli.CliParser;
@@ -8,9 +9,7 @@ import com.svesh.course_work.app.io.AppRunner;
 import com.svesh.course_work.app.io.OutputPathResolver;
 import com.svesh.course_work.app.requests.RequestBuilder;
 import com.svesh.course_work.io.storage.WriteMode;
-import com.svesh.course_work.api.ApiRequest;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -23,6 +22,18 @@ public class AutomaticMode {
         this.runner = runner;
         this.requestBuilder = new RequestBuilder(registry);
         this.parser = new CliParser(registry, new OutputPathResolver());
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (runner.isPollingRunning()) {
+                System.out.println("\nShutting down polling...");
+                try {
+                    runner.stopPolling();
+                } catch (RuntimeException e) {
+                    System.err.println("Shutdown error: " + e.getMessage());
+                }
+                System.out.println("EXIT");
+            }
+        }, "automatic-shutdown"));
     }
 
     public int run(String[] args) {
@@ -43,15 +54,23 @@ public class AutomaticMode {
         }
 
         try {
-            runner.export(requests, config.format(), config.path(), WriteMode.APPEND);
-            System.out.println("EXPORT COMPLETED\nOUTPUT-FILE: " + config.path());
-            return 0;
-        } catch (IOException e) {
-            System.err.println("I/O ERROR: " + e.getMessage());
-            return 1;
-        } catch (RuntimeException e) {
+            runner.startPolling(requests, config.format(), config.path(),
+                    config.maxThreads(), config.intervalSeconds(), WriteMode.APPEND);
+        } catch (IllegalStateException | IllegalArgumentException e) {
             System.err.println("ERROR: " + e.getMessage());
             return 1;
         }
+
+        System.out.println("Polling started: threads=" + config.maxThreads()
+                + ", interval=" + config.intervalSeconds() + "s.");
+        System.out.println("Output file: " + config.path());
+        System.out.println("Press Ctrl+C to stop.");
+
+        try {
+            runner.awaitPollingShutdown();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return 0;
     }
 }

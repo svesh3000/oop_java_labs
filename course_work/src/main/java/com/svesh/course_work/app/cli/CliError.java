@@ -12,7 +12,6 @@ public final class CliError extends RuntimeException {
         ERR_NO_APIS,
         ERR_UNKNOWN_FORMAT,
         ERR_UNKNOWN_API,
-        ERR_DUPLICATE_API,
         ERR_FORMAT_PATH_CONFLICT
     }
 

@@ -11,15 +11,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class JsonStorage implements Storage<List<DataRecord>> {
+    private static final Object LOCK = new Object();
     private static final ObjectMapper MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @Override
     public void write(List<DataRecord> records, Path path, WriteMode mode) {
-        switch (mode) {
-            case CREATE -> writeCreate(records, path);
-            case APPEND -> writeAppend(records, path);
+        synchronized (LOCK) {
+            switch (mode) {
+                case CREATE -> writeCreate(records, path);
+                case APPEND -> writeAppend(records, path);
+            }
         }
     }
+
 
     private void writeCreate(List<DataRecord> records, Path path) {
         try {

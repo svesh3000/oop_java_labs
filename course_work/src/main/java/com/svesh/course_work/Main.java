@@ -11,7 +11,7 @@ public class Main {
 
         if (args.length == 0) {
             HelpPrinter.printGeneralHelp(context.getApiRegistry());
-            System.exit(0);
+            return;
         }
 
         String[] modeArgs = Arrays.copyOfRange(args, 1, args.length);

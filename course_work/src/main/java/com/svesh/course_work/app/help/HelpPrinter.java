@@ -17,18 +17,21 @@ public final class HelpPrinter {
                 ==================================================
                 
                 Usage:
-                  --automatic     Run automatic mode
+                  --automatic     Run automatic mode (polling)
                   --interactive   Run interactive mode
                   --help          Show this help
                 
                 Flags for automatic mode:
-                  --api           One or more API names (required flag)
-                  --format        File format           (required flag)
-                  --out           Output file path      (optional flag, default: output.<format>)
+                  --api           One or more API names (required)
+                  --format        File format (required)
+                  --out           Output file path (optional, default: output.<format>)
+                  --n             Max concurrent polling tasks (optional, default: 1)
+                  --t             Seconds between re-polls of the same API (optional, default: 5)
                 
                 Examples:
                   --automatic --api joke --format json
-                  --automatic --api open-meteo joke --format csv --out result
+                  --automatic --api joke scryfall --format json --n 2 --t 10
+                  --automatic --api joke joke joke --format csv --n 3 --t 0
                   --interactive
                 """);
 

@@ -19,14 +19,17 @@ import java.util.Map;
 import java.util.Objects;
 
 public class CsvStorage implements Storage<CsvTable> {
+    private static final Object LOCK = new Object();
     private final CsvConverter converter = new CsvConverter();
 
     @Override
     public void write(List<DataRecord> records, Path path, WriteMode mode) {
-        CsvTable table = converter.convert(records);
-        switch (mode) {
-            case CREATE -> writeCreate(table, path);
-            case APPEND -> writeAppend(table, path);
+        synchronized (LOCK) {
+            CsvTable table = converter.convert(records);
+            switch (mode) {
+                case CREATE -> writeCreate(table, path);
+                case APPEND -> writeAppend(table, path);
+            }
         }
     }
 

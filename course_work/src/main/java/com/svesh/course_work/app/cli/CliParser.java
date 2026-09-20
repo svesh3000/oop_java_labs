@@ -7,10 +7,12 @@ import com.svesh.course_work.io.OutputFormat;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.List;
 
 public class CliParser {
+    private static final int DEFAULT_MAX_THREADS = 1;
+    private static final int DEFAULT_INTERVAL_SECONDS = 5;
+
     private final ApiRegistry registry;
     private final OutputPathResolver pathResolver;
 
@@ -22,7 +24,11 @@ public class CliParser {
     public CliConfig parse(String[] args) {
         OutputFormat format = null;
         Path path = null;
-        Set<String> apiNames = new LinkedHashSet<>();
+        List<String> apiNames = new ArrayList<>();
+        int maxThreads = DEFAULT_MAX_THREADS;
+        int intervalSeconds = DEFAULT_INTERVAL_SECONDS;
+        boolean threadsSet = false;
+        boolean intervalSet = false;
 
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
@@ -64,7 +70,6 @@ public class CliParser {
                     }
                     format = parseFormat(args[i]);
                 }
-
                 case "--out" -> {
                     if (path != null) {
                         throw new CliError(
@@ -82,9 +87,45 @@ public class CliParser {
                     try {
                         path = Path.of(args[i].trim());
                     } catch (InvalidPathException e) {
-                        throw new CliError(CliError.Code.ERR_INVALID_OUTPUT,
-                                "Invalid output path: " + args[i] + " (" + e.getMessage() + ")");
+                        throw new CliError(
+                                CliError.Code.ERR_INVALID_OUTPUT,
+                                "Invalid output path: " + args[i] + " (" + e.getMessage() + ")"
+                        );
                     }
+                }
+                case "--n" -> {
+                    if (threadsSet) {
+                        throw new CliError(
+                                CliError.Code.ERR_INVALID_ARG,
+                                "Parameter --n specified more than once"
+                        );
+                    }
+                    i++;
+                    if (i >= args.length || args[i].startsWith("--")) {
+                        throw new CliError(
+                                CliError.Code.ERR_INVALID_ARG,
+                                "Value for --n is missing"
+                        );
+                    }
+                    maxThreads = parseNonNegativeInt(args[i], "n", 1);
+                    threadsSet = true;
+                }
+                case "--t" -> {
+                    if (intervalSet) {
+                        throw new CliError(
+                                CliError.Code.ERR_INVALID_ARG,
+                                "Parameter --t specified more than once"
+                        );
+                    }
+                    i++;
+                    if (i >= args.length || args[i].startsWith("--")) {
+                        throw new CliError(
+                                CliError.Code.ERR_INVALID_ARG,
+                                "Value for --t is missing"
+                        );
+                    }
+                    intervalSeconds = parseNonNegativeInt(args[i], "t", 0);
+                    intervalSet = true;
                 }
                 default -> {
                     if (arg.startsWith("--")) {
@@ -115,7 +156,25 @@ public class CliParser {
         }
         path = (path == null) ? Path.of("output") : path;
         path = pathResolver.resolve(path, format);
-        return new CliConfig(format, path, new ArrayList<>(apiNames));
+        return new CliConfig(format, path, apiNames, maxThreads, intervalSeconds);
+    }
+
+    private int parseNonNegativeInt(String raw, String name, int min) {
+        try {
+            int v = Integer.parseInt(raw.trim());
+            if (v < min) {
+                throw new CliError(
+                        CliError.Code.ERR_INVALID_ARG,
+                        "Value for --" + name + " must be >= " + min
+                );
+            }
+            return v;
+        } catch (NumberFormatException e) {
+            throw new CliError(
+                    CliError.Code.ERR_INVALID_ARG,
+                    "Value for --" + name + " must be an integer, got: " + raw
+            );
+        }
     }
 
     private OutputFormat parseFormat(String value) {
@@ -133,7 +192,7 @@ public class CliParser {
         return requested;
     }
 
-    private void addApi(String apiName, Set<String> apiNames) {
+    private void addApi(String apiName, List<String> apiNames) {
         if (registry.get(apiName) == null) {
             StringBuilder available = new StringBuilder();
             registry.getAll().forEach(api -> available.append("\n - ").append(api.getApiName()));
@@ -143,11 +202,6 @@ public class CliParser {
                     "Unknown API: " + apiName + "\nAvailable APIs:" + available
             );
         }
-        if (!apiNames.add(apiName)) {
-            throw new CliError(
-                    CliError.Code.ERR_DUPLICATE_API,
-                    "API specified multiple times: " + apiName
-            );
-        }
+        apiNames.add(apiName);
     }
 }

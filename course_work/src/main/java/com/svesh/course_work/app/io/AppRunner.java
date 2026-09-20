@@ -8,6 +8,7 @@ import com.svesh.course_work.io.storage.StorageFactory;
 import com.svesh.course_work.io.storage.WriteMode;
 import com.svesh.course_work.io.viewer.ViewerFactory;
 import com.svesh.course_work.models.DataRecord;
+import com.svesh.course_work.parallel.PollingService;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -18,11 +19,13 @@ public class AppRunner {
     private final StorageFactory storageFactory;
     private final ViewerFactory viewerFactory;
     private final FilterFactory filterFactory;
+    private PollingService pollingService;
 
     public AppRunner(
             IngestService ingestService,
             StorageFactory storageFactory,
-            ViewerFactory viewerFactory, FilterFactory filterFactory
+            ViewerFactory viewerFactory,
+            FilterFactory filterFactory
     ) {
         this.ingestService = ingestService;
         this.storageFactory = storageFactory;
@@ -55,5 +58,34 @@ public class AppRunner {
         var data = storage.read(path);
         var filtered = filter.filterBySource(data, source);
         viewer.show(filtered);
+    }
+
+    public void startPolling(List<ApiRequest> requests,
+                             OutputFormat format,
+                             Path path,
+                             int maxThreads,
+                             int intervalSeconds,
+                             WriteMode mode) {
+        if (isPollingRunning()) {
+            throw new IllegalStateException("Polling is already running");
+        }
+        pollingService = new PollingService(ingestService, storageFactory, format, path);
+        pollingService.start(requests, maxThreads, intervalSeconds, mode);
+    }
+
+    public void stopPolling() {
+        if (isPollingRunning()) {
+            pollingService.stop();
+        }
+    }
+
+    public boolean isPollingRunning() {
+        return pollingService != null && pollingService.isRunning();
+    }
+
+    public void awaitPollingShutdown() throws InterruptedException {
+        if (pollingService != null) {
+            pollingService.awaitShutdown();
+        }
     }
 }
