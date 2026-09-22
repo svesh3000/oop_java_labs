@@ -11,14 +11,8 @@ public record ParamSpec(
         return allowed == null;
     }
 
-    public static ParamSpec required(Set<String> allowed) {
-        return new ParamSpec(true, false, allowed);
-    }
     public static ParamSpec optional(Set<String> allowed) {
         return new ParamSpec(false, false, allowed);
-    }
-    public static ParamSpec requiredMulti(Set<String> allowed) {
-        return new ParamSpec(true, true, allowed);
     }
     public static ParamSpec optionalMulti(Set<String> allowed) {
         return new ParamSpec(false, true, allowed);

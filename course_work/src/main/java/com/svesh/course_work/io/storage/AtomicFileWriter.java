@@ -18,9 +18,6 @@ final class AtomicFileWriter {
     static void write(Path target, ContentWriter writer) throws IOException {
         Path abs = target.toAbsolutePath();
         Path dir = abs.getParent();
-        if (dir == null) {
-            dir = Path.of(".");
-        }
 
         Files.createDirectories(dir);
 

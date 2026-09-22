@@ -19,7 +19,7 @@ public class InteractiveMode {
     private final ApiRegistry registry;
     private final RequestBuilder requestBuilder;
     private final OutputPathResolver pathResolver;
-    private final Scanner scanner = new Scanner(System.in);
+    private final Scanner scanner;
 
     private record ViewTarget(Path path, OutputFormat format) {
     }
@@ -34,11 +34,12 @@ public class InteractiveMode {
         CANCEL
     }
 
-    public InteractiveMode(AppRunner runner, ApiRegistry registry) {
+    public InteractiveMode(AppRunner runner, ApiRegistry registry, Scanner scanner) {
         this.runner = runner;
         this.registry = registry;
         this.requestBuilder = new RequestBuilder(registry);
         this.pathResolver = new OutputPathResolver();
+        this.scanner = scanner;
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             if (runner.isPollingRunning()) {
@@ -269,7 +270,13 @@ public class InteractiveMode {
         while (true) {
             System.out.print("File path (Enter to cancel): ");
             String input = scanner.nextLine().trim();
-            if (input.isEmpty()) return null;
+            if (input.isEmpty()) {
+                return null;
+            }
+            if (input.endsWith("/") || input.endsWith("\\")) {
+                System.out.println("ERROR: Path is a directory. Specify a file name at the end.");
+                continue;
+            }
 
             Path path;
             try {
@@ -378,6 +385,10 @@ public class InteractiveMode {
             String input = scanner.nextLine().trim();
             if (input.isEmpty()) {
                 return null;
+            }
+            if (input.endsWith("/") || input.endsWith("\\")) {
+                System.out.println("ERROR: Path is a directory. Specify a file name at the end.");
+                continue;
             }
             try {
                 Path path = Path.of(input);

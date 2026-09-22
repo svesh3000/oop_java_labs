@@ -73,22 +73,29 @@ public class CliParser {
                 case "--out" -> {
                     if (path != null) {
                         throw new CliError(
-                                CliError.Code.ERR_CONFLICT_OUTPUT,
+                                CliError.Code.ERR_CONFLICT_OUTPUT_PATH,
                                 "Output file specified more than once"
                         );
                     }
                     i++;
                     if (i >= args.length || args[i].startsWith("--")) {
                         throw new CliError(
-                                CliError.Code.ERR_INVALID_OUTPUT,
+                                CliError.Code.ERR_INVALID_OUTPUT_PATH,
                                 "Output path is missing"
                         );
                     }
                     try {
+                        String input = args[i].trim();
+                        if (input.endsWith("/") || input.endsWith("\\")) {
+                            throw new CliError(
+                                    CliError.Code.ERR_INVALID_OUTPUT_PATH,
+                                    "Path is a directory. Specify a file name at the end"
+                            );
+                        }
                         path = Path.of(args[i].trim());
                     } catch (InvalidPathException e) {
                         throw new CliError(
-                                CliError.Code.ERR_INVALID_OUTPUT,
+                                CliError.Code.ERR_INVALID_OUTPUT_PATH,
                                 "Invalid output path: " + args[i] + " (" + e.getMessage() + ")"
                         );
                     }
@@ -96,7 +103,7 @@ public class CliParser {
                 case "--n" -> {
                     if (threadsSet) {
                         throw new CliError(
-                                CliError.Code.ERR_INVALID_ARG,
+                                CliError.Code.ERR_CONFLICT_NUMBER_OF_THREADS,
                                 "Parameter --n specified more than once"
                         );
                     }
@@ -113,7 +120,7 @@ public class CliParser {
                 case "--t" -> {
                     if (intervalSet) {
                         throw new CliError(
-                                CliError.Code.ERR_INVALID_ARG,
+                                CliError.Code.ERR_CONFLICT_INTERVAL,
                                 "Parameter --t specified more than once"
                         );
                     }

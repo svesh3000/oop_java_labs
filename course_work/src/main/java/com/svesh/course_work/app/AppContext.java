@@ -11,6 +11,8 @@ import com.svesh.course_work.io.filters.FilterFactory;
 import com.svesh.course_work.io.storage.StorageFactory;
 import com.svesh.course_work.io.viewer.ViewerFactory;
 
+import java.util.Scanner;
+
 public class AppContext {
 
     private final ApiRegistry apiRegistry;
@@ -26,7 +28,7 @@ public class AppContext {
                 new FilterFactory()
         );
         this.automaticMode = new AutomaticMode(appRunner, apiRegistry);
-        this.interactiveMode = new InteractiveMode(appRunner, apiRegistry);
+        this.interactiveMode = new InteractiveMode(appRunner, apiRegistry, new Scanner(System.in));
     }
 
     public static AppContext create() {

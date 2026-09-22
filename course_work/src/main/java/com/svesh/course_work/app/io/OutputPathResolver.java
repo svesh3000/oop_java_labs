@@ -11,7 +11,7 @@ public class OutputPathResolver {
 
         Path fileName = input.getFileName();
         if (fileName == null) {
-            throw new CliError(CliError.Code.ERR_INVALID_OUTPUT, "Path must point to a file, not a root: " + input);
+            throw new CliError(CliError.Code.ERR_INVALID_OUTPUT_PATH, "Path must point to a file, not a root: " + input);
         }
 
         String name = fileName.toString();

@@ -6,13 +6,15 @@ public final class CliError extends RuntimeException {
         ERR_EMPTY_API_LIST,
         ERR_CONFLICT_FORMAT,
         ERR_NO_FORMAT,
-        ERR_CONFLICT_OUTPUT,
-        ERR_INVALID_OUTPUT,
+        ERR_CONFLICT_OUTPUT_PATH,
+        ERR_INVALID_OUTPUT_PATH,
         ERR_UNKNOWN_FLAG,
         ERR_NO_APIS,
         ERR_UNKNOWN_FORMAT,
         ERR_UNKNOWN_API,
-        ERR_FORMAT_PATH_CONFLICT
+        ERR_FORMAT_PATH_CONFLICT,
+        ERR_CONFLICT_NUMBER_OF_THREADS,
+        ERR_CONFLICT_INTERVAL
     }
 
     private final Code code;
