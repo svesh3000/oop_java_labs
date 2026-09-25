@@ -134,7 +134,7 @@ java -jar course_work.jar --automatic --api joke scryfall --format csv --out res
 
 | Флаг | Описание |
 |---|---|
-| `--api` | Одно или несколько имён API (обязательно, дубликаты допустимы) |
+| `--api` | Одно или несколько имён API (обязательно) |
 | `--format` | Формат вывода: `json` или `csv` (обязательно) |
 | `--out` | Путь к выходному файлу (опционально, по умолчанию `output.<format>`) |
 | `--n` | Максимальное число одновременно выполняемых задач (опционально, по умолчанию `1`) |
@@ -146,9 +146,7 @@ java -jar course_work.jar --automatic --api joke scryfall --format csv --out res
 java -jar course_work.jar --automatic --api joke joke scryfall --format json --n 3 --t 10
 ```
 
-Здесь три поллера параллельно опрашивают указанные источники с интервалом 10 секунд после завершения каждого запроса.
-
-## Формат сохранения данных
+## Форматы сохранения данных
 
 ### JSON
 
@@ -167,8 +165,6 @@ java -jar course_work.jar --automatic --api joke joke scryfall --format json --n
 ```
 
 ### CSV
-
-Денормализованная таблица, где вложенные поля выносятся в колонки с точкой-разделителем, а массивы разворачиваются в дополнительные строки:
 
 ```
 id,source,timestamp,data.type,data.joke,data.latitude,data.longitude
@@ -189,5 +185,3 @@ mvn clean test
 ```
 
 Отчёт о покрытии формируется в `target/site/jacoco/index.html`.
-
-Тесты покрывают бизнес-логику: парсинг и валидацию параметров, разбор CLI, преобразование JSON в CSV, сохранение и чтение файлов, HTTP-клиент (через `MockWebServer`), многопоточный опрос. Сетевые вызовы в тестах отсутствуют.
